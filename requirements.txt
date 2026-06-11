@@ -1,0 +1,59 @@
+# Wfer Flousk (Flutter) - Runtime Requirements
+# Note: this is NOT a Python pip requirements file.
+# It lists what you need installed to run/build this Flutter project.
+
+[Required versions]
+Flutter SDK: 3.41.2 (stable)
+Dart SDK: 3.11.0
+Java JDK: 17
+Android Studio: latest stable
+Git: latest stable
+
+[Project constraints from source]
+Dart constraint (pubspec.yaml): ^3.11.0
+Android compile options (android/app/build.gradle.kts): Java 17 / Kotlin JVM 17
+
+[Android SDK packages to install]
+Android SDK Platform (API 35 recommended)
+Android SDK Build-Tools (35.x recommended)
+Android SDK Platform-Tools
+Android SDK Command-line Tools (latest)
+
+[Expected local paths on this machine]
+Flutter SDK: C:\flutter
+Android SDK: C:\Users\PC\AppData\Local\Android\sdk
+ADB: C:\Users\PC\AppData\Local\Android\sdk\platform-tools\adb.exe
+
+[Environment variables / PATH]
+Add to PATH:
+1) C:\flutter\bin
+2) C:\Users\PC\AppData\Local\Android\sdk\platform-tools
+
+Optional:
+ANDROID_SDK_ROOT=C:\Users\PC\AppData\Local\Android\sdk
+JAVA_HOME=<path-to-jdk-17>
+
+[First-time setup]
+flutter doctor
+flutter doctor --android-licenses
+flutter pub get
+
+[Run project]
+flutter clean
+flutter pub get
+flutter run
+
+[Build APK]
+flutter build apk --debug
+flutter build apk --release
+
+[If phone not detected]
+Enable Developer options + USB debugging on phone
+Use data USB cable (File transfer mode)
+adb kill-server
+adb start-server
+adb devices -l
+
+[Dependencies]
+All Dart/Flutter package dependencies are managed in pubspec.yaml.
+Do NOT use pip for this project.

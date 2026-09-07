@@ -38,6 +38,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
 
   bool _busyCsv = false;
   bool _busyOcr = false;
+  bool _busyStatementOcr = false;
 
   @override
   void dispose() {
@@ -949,6 +950,52 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            _tr(
+              context,
+              'Or scan a whole bank statement (several transactions at once):',
+              'Ou scannez un relevé bancaire entier (plusieurs transactions d\'un coup) :',
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: _busyStatementOcr
+                    ? null
+                    : () => _runStatementOcr(
+                        context: context,
+                        tools: tools,
+                        source: ImageSource.camera,
+                        expenses: expenses,
+                        settings: settings,
+                      ),
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: Text(
+                  _tr(context, 'Scan Statement', 'Scanner un relevé'),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busyStatementOcr
+                    ? null
+                    : () => _runStatementOcr(
+                        context: context,
+                        tools: tools,
+                        source: ImageSource.gallery,
+                        expenses: expenses,
+                        settings: settings,
+                      ),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(
+                  _tr(context, 'Statement from Gallery', 'Relevé depuis galerie'),
+                ),
+              ),
+            ],
+          ),
           if (tools.lastOcrResult != null) ...<Widget>[
             const SizedBox(height: 10),
             Text(
@@ -1794,6 +1841,261 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
 
     noteController.dispose();
     amountController.dispose();
+  }
+
+  Future<void> _runStatementOcr({
+    required BuildContext context,
+    required ToolsController tools,
+    required ImageSource source,
+    required ExpenseController expenses,
+    required SettingsController settings,
+  }) async {
+    if (!settings.isPro) {
+      await _showOcrProGate(context);
+      return;
+    }
+
+    setState(() => _busyStatementOcr = true);
+    BankStatementScanResult? scanResult;
+    try {
+      scanResult = await tools.scanBankStatement(source);
+    } catch (_) {
+      if (!context.mounted) return;
+      _showSnack(
+        _tr(
+          context,
+          'Statement scan failed or canceled.',
+          'Scan du relevé echoue ou annule.',
+        ),
+      );
+      return;
+    } finally {
+      if (mounted) setState(() => _busyStatementOcr = false);
+    }
+    if (!context.mounted) return;
+
+    final BankStatementScanResult? result = scanResult;
+    if (result == null) {
+      final String? errorMessage = tools.lastStatementScanError;
+      _showSnack(
+        errorMessage ??
+            _tr(
+              context,
+              'Statement scan failed or canceled.',
+              'Scan du relevé echoue ou annule.',
+            ),
+      );
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+
+    // Chaque transaction reste un objet mutable (voir ScannedTransaction):
+    // les champs amount/description/suggestedCategory/included sont modifies
+    // directement par les controles ci-dessous, pas besoin de reconstruire
+    // toute la liste a chaque frappe.
+    final List<ScannedTransaction> transactions = result.transactions;
+    final List<TextEditingController> amountControllers = transactions
+        .map(
+          (ScannedTransaction t) =>
+              TextEditingController(text: t.amount.toStringAsFixed(2)),
+        )
+        .toList(growable: false);
+    final List<TextEditingController> noteControllers = transactions
+        .map((ScannedTransaction t) => TextEditingController(text: t.description))
+        .toList(growable: false);
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          // Nomme volontairement "builderContext" (et non "context") pour ne
+          // PAS masquer le `context` de la page qui englobe ce dialogue: le
+          // controle `context.mounted` plus bas, apres la fermeture du
+          // dialogue, doit verifier que la PAGE est toujours montee, pas ce
+          // dialogue qu'on vient justement de fermer.
+          builder: (BuildContext builderContext, StateSetter setDialogState) {
+            final int includedCount = transactions
+                .where((ScannedTransaction t) => t.included)
+                .length;
+            return AlertDialog(
+              title: Text(
+                _ta(
+                  builderContext,
+                  'Review {count} transaction(s)',
+                  <String, String>{'count': transactions.length.toString()},
+                  'Verifier {count} transaction(s)',
+                ),
+              ),
+              content: SizedBox(
+                width: 480,
+                height: 420,
+                child: ListView.separated(
+                  itemCount: transactions.length,
+                  separatorBuilder: (BuildContext context, int index) =>
+                      const Divider(height: 20),
+                  itemBuilder: (BuildContext context, int index) {
+                    final ScannedTransaction t = transactions[index];
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Checkbox(
+                          value: t.included,
+                          onChanged: (bool? value) {
+                            setDialogState(() => t.included = value ?? false);
+                          },
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: <Widget>[
+                                  Expanded(
+                                    child: TextField(
+                                      controller: amountControllers[index],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        labelText: _tr(
+                                          context,
+                                          'Amount',
+                                          'Montant',
+                                        ),
+                                      ),
+                                      onChanged: (String value) {
+                                        final double? parsed = double.tryParse(
+                                          value.replaceAll(',', '.'),
+                                        );
+                                        if (parsed != null) {
+                                          t.amount = parsed;
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    t.date == null
+                                        ? '-'
+                                        : DateUtilsX.short(
+                                            t.date!,
+                                            localeCode: settings.localeCode,
+                                          ),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: noteControllers[index],
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  labelText: _tr(context, 'Note', 'Note'),
+                                ),
+                                onChanged: (String value) =>
+                                    t.description = value,
+                              ),
+                              const SizedBox(height: 4),
+                              DropdownButtonFormField<ExpenseCategory>(
+                                isExpanded: true,
+                                initialValue: t.suggestedCategory,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  labelText: _tr(
+                                    context,
+                                    'Category',
+                                    'Categorie',
+                                  ),
+                                ),
+                                items: ExpenseCategory.values
+                                    .map(
+                                      (ExpenseCategory c) =>
+                                          DropdownMenuItem<ExpenseCategory>(
+                                            value: c,
+                                            child: Text(
+                                              c.localizedLabel(
+                                                settings.localeCode,
+                                              ),
+                                            ),
+                                          ),
+                                    )
+                                    .toList(),
+                                onChanged: (ExpenseCategory? value) {
+                                  if (value != null) {
+                                    t.suggestedCategory = value;
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(_tr(builderContext, 'Cancel', 'Annuler')),
+                ),
+                ElevatedButton(
+                  onPressed: includedCount == 0
+                      ? null
+                      : () async {
+                          final int added = await tools
+                              .addExpensesFromBankStatement(
+                                transactions: transactions,
+                                expenseController: expenses,
+                                currencyCode: settings.currencyCode,
+                                accountId: settings.activeBankAccountId,
+                              );
+                          await tools.evaluateBudgets(
+                            expenses: expenses.expensesForAccount(
+                              settings.activeBankAccountId,
+                            ),
+                            currencyCode: settings.currencyCode,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                          if (!context.mounted) return;
+                          _showSnack(
+                            _ta(
+                              context,
+                              '{count} transaction(s) imported.',
+                              <String, String>{'count': added.toString()},
+                              '{count} transaction(s) importee(s).',
+                            ),
+                          );
+                        },
+                  child: Text(
+                    _ta(
+                      builderContext,
+                      'Import {count}',
+                      <String, String>{'count': includedCount.toString()},
+                      'Importer {count}',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    for (final TextEditingController c in amountControllers) {
+      c.dispose();
+    }
+    for (final TextEditingController c in noteControllers) {
+      c.dispose();
+    }
   }
 
   Future<void> _showOcrProGate(BuildContext context) async {

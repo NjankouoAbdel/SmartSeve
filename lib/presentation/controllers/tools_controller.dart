@@ -61,6 +61,8 @@ class ToolsController extends ChangeNotifier {
   String? _lastCloudError;
   OcrScanResult? _lastOcrResult;
   String? _lastOcrError;
+  BankStatementScanResult? _lastStatementScan;
+  String? _lastStatementScanError;
   UsageOverview _usageOverview = const UsageOverview(
     used: 0,
     limit: 180,
@@ -87,6 +89,8 @@ class ToolsController extends ChangeNotifier {
   String? get lastCloudError => _lastCloudError;
   OcrScanResult? get lastOcrResult => _lastOcrResult;
   String? get lastOcrError => _lastOcrError;
+  BankStatementScanResult? get lastStatementScan => _lastStatementScan;
+  String? get lastStatementScanError => _lastStatementScanError;
   UsageOverview get usageOverview => _usageOverview;
 
   List<BudgetGoal> get budgets => List<BudgetGoal>.unmodifiable(_budgets);
@@ -883,6 +887,96 @@ class ToolsController extends ChangeNotifier {
       localNotify: false,
     );
     return true;
+  }
+
+  /// Scanne une photo de relevé bancaire et retourne les transactions
+  /// detectees, pretes a etre revues/corrigees par l'utilisateur avant
+  /// import (voir [addExpensesFromBankStatement]).
+  Future<BankStatementScanResult?> scanBankStatement(ImageSource source) async {
+    _lastStatementScanError = null;
+    try {
+      final BankStatementScanResult? result = await _ocrService
+          .scanBankStatement(source);
+      _lastStatementScan = result;
+      if (result != null) {
+        await _pushNotice(
+          title: _t('Statement Scanned', fr: 'Relevé scanné'),
+          message: _ta(
+            '{count} transaction(s) detected. Review before importing.',
+            <String, String>{
+              'count': result.transactions.length.toString(),
+            },
+            fr: '{count} transaction(s) detectee(s). A verifier avant import.',
+          ),
+          tool: 'ocr',
+          localNotify: false,
+        );
+      }
+      notifyListeners();
+      return result;
+    } on OcrServiceException catch (error) {
+      _lastStatementScan = null;
+      _lastStatementScanError = error.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _lastStatementScan = null;
+      _lastStatementScanError = _t(
+        'Statement scan failed. Please try again.',
+        fr: 'Echec du scan du relevé. Veuillez reessayer.',
+      );
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Importe en bloc les transactions cochees (`included == true`) issues
+  /// d'un scan de relevé bancaire. Retourne le nombre reellement ajoute
+  /// (les doublons d'id sont ignores par [ExpenseController.addExpensesBulk],
+  /// mais ici chaque transaction recoit un id neuf donc ca n'arrive pas en
+  /// pratique — le controle existe surtout pour un import relance deux fois).
+  Future<int> addExpensesFromBankStatement({
+    required List<ScannedTransaction> transactions,
+    required ExpenseController expenseController,
+    required String currencyCode,
+    String accountId = 'main',
+  }) async {
+    final List<Expense> toAdd = transactions
+        .where(
+          (ScannedTransaction t) => t.included && t.amount.abs() > 0,
+        )
+        .map(
+          (ScannedTransaction t) => Expense(
+            id: _uuid.v4(),
+            amount: t.amount,
+            category: t.suggestedCategory,
+            date: t.date ?? DateTime.now(),
+            note: t.description.isEmpty ? 'Relevé bancaire' : t.description,
+            currencyCode: currencyCode,
+            accountId: accountId,
+          ),
+        )
+        .toList(growable: false);
+
+    if (toAdd.isEmpty) {
+      return 0;
+    }
+
+    final int added = await expenseController.addExpensesBulk(toAdd);
+    await _pushNotice(
+      title: _t(
+        'Statement Import Complete',
+        fr: 'Import du relevé termine',
+      ),
+      message: _ta(
+        '{count} transaction(s) imported from the scanned statement.',
+        <String, String>{'count': added.toString()},
+        fr: '{count} transaction(s) importee(s) depuis le relevé scanne.',
+      ),
+      tool: 'ocr',
+      localNotify: false,
+    );
+    return added;
   }
 
   Future<void> setBiometricEnabled(bool enabled) async {

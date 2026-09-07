@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Smart Daily Expense Manager_firebase</string>
-    <string name="smart_daily_widget_name">Smart Daily Wallet</string>
+    <string name="app_name">SMART SAVE Expense Manager_firebase</string>
+    <string name="smart_daily_widget_name">SMART SAVE Wallet</string>
     <string name="smart_daily_widget_desc">Track balance and monthly spending</string>
 </resources>
 

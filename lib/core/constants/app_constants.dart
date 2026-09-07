@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String appName = 'Smart Daily Expense Manager_firebase';
+  static const String appName = 'SMART SAVE Expense Manager_firebase';
 
   static const String expensesBox = 'expenses_box';
   static const String settingsBox = 'settings_box';

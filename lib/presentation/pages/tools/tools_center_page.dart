@@ -114,7 +114,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
   }
 
   Widget _buildLockedView(BuildContext context, ToolsController tools) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: GlassCard(
         child: Column(
@@ -564,6 +564,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                     ),
                     currencyCode: settings.currencyCode,
                   );
+                  if (!context.mounted) return;
                   _showSnack(
                     _tr(
                       context,
@@ -677,6 +678,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                     ),
                     currencyCode: settings.currencyCode,
                   );
+                  if (!context.mounted) return;
                   _showSnack(
                     _ta(
                       context,
@@ -792,6 +794,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                     return;
                   }
                   await tools.setPinCode(pin);
+                  if (!context.mounted) return;
                   _showSnack(_tr(context, 'PIN enabled.', 'PIN active.'));
                 },
                 child: Text(_tr(context, 'Save PIN', 'Enregistrer PIN')),
@@ -799,6 +802,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
               OutlinedButton(
                 onPressed: () async {
                   await tools.disablePin();
+                  if (!context.mounted) return;
                   _pinController.clear();
                   _showSnack(_tr(context, 'PIN disabled.', 'PIN desactive.'));
                 },
@@ -992,30 +996,41 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                     ? null
                     : () async {
                         setState(() => _busyCsv = true);
-                        final String? path = await tools.exportCsv(
-                          expenses.expensesForAccount(
-                            settings.activeBankAccountId,
-                          ),
-                        );
-                        if (mounted) {
-                          setState(() => _busyCsv = false);
-                        }
-                        if (path == null) {
+                        try {
+                          final String? path = await tools.exportCsv(
+                            expenses.expensesForAccount(
+                              settings.activeBankAccountId,
+                            ),
+                          );
+                          if (!context.mounted) return;
+                          if (path == null) {
+                            _showSnack(
+                              _tr(
+                                context,
+                                'CSV export failed.',
+                                'Echec export CSV.',
+                              ),
+                            );
+                            return;
+                          }
+                          _showSnack(
+                            _tr(context, 'CSV exported.', 'CSV exporte.'),
+                          );
+                          await SharePlus.instance.share(
+                            ShareParams(files: <XFile>[XFile(path)]),
+                          );
+                        } catch (_) {
+                          if (!context.mounted) return;
                           _showSnack(
                             _tr(
                               context,
-                              'CSV export failed.',
-                              'Echec export CSV.',
+                              'Unable to complete the request.',
+                              'Impossible de terminer la demande.',
                             ),
                           );
-                          return;
+                        } finally {
+                          if (mounted) setState(() => _busyCsv = false);
                         }
-                        _showSnack(
-                          _tr(context, 'CSV exported.', 'CSV exporte.'),
-                        );
-                        await SharePlus.instance.share(
-                          ShareParams(files: <XFile>[XFile(path)]),
-                        );
                       },
                 icon: const Icon(Icons.file_download_outlined),
                 label: Text(_tr(context, 'Export CSV', 'Exporter CSV')),
@@ -1025,32 +1040,44 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                     ? null
                     : () async {
                         setState(() => _busyCsv = true);
-                        final (List<Expense> imported, String? error) =
-                            await tools.importCsv(settings.currencyCode);
-                        if (mounted) {
-                          setState(() => _busyCsv = false);
+                        try {
+                          final (List<Expense> imported, String? error) =
+                              await tools.importCsv(settings.currencyCode);
+                          if (!context.mounted) return;
+                          if (error != null) {
+                            _showSnack(error);
+                            return;
+                          }
+                          final int count = await expenses.addExpensesBulk(
+                            imported,
+                          );
+                          await tools.evaluateBudgets(
+                            expenses: expenses.expensesForAccount(
+                              settings.activeBankAccountId,
+                            ),
+                            currencyCode: settings.currencyCode,
+                          );
+                          if (!context.mounted) return;
+                          _showSnack(
+                            _ta(
+                              context,
+                              'Imported and merged: {count} expense(s).',
+                              <String, String>{'count': count.toString()},
+                              'Importe et fusionne : {count} depense(s).',
+                            ),
+                          );
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          _showSnack(
+                            _tr(
+                              context,
+                              'Unable to complete the request.',
+                              'Impossible de terminer la demande.',
+                            ),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _busyCsv = false);
                         }
-                        if (error != null) {
-                          _showSnack(error);
-                          return;
-                        }
-                        final int count = await expenses.addExpensesBulk(
-                          imported,
-                        );
-                        await tools.evaluateBudgets(
-                          expenses: expenses.expensesForAccount(
-                            settings.activeBankAccountId,
-                          ),
-                          currencyCode: settings.currencyCode,
-                        );
-                        _showSnack(
-                          _ta(
-                            context,
-                            'Imported and merged: {count} expense(s).',
-                            <String, String>{'count': count.toString()},
-                            'Importe et fusionne : {count} depense(s).',
-                          ),
-                        );
                       },
                 icon: const Icon(Icons.file_upload_outlined),
                 label: Text(_tr(context, 'Import CSV', 'Importer CSV')),
@@ -1287,6 +1314,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          scrollable: true,
           title: Text(
             _tr(context, 'Add Budget Goal', 'Ajouter un objectif budget'),
           ),
@@ -1304,6 +1332,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<ExpenseCategory?>(
+                isExpanded: true,
                 initialValue: selectedCategory,
                 decoration: InputDecoration(
                   hintText: _tr(context, 'Category', 'Categorie'),
@@ -1416,6 +1445,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                 }
 
                 return AlertDialog(
+                  scrollable: true,
                   title: Text(
                     _tr(
                       context,
@@ -1438,6 +1468,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<ExpenseCategory>(
+                          isExpanded: true,
                           initialValue: selectedCategory,
                           items: ExpenseCategory.values
                               .map(
@@ -1463,6 +1494,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<PlannedCadence>(
+                          isExpanded: true,
                           initialValue: selectedCadence,
                           items: PlannedCadence.values
                               .map(
@@ -1607,11 +1639,21 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
     }
 
     setState(() => _busyOcr = true);
-    final OcrScanResult? result = await tools.scanReceipt(source);
-    if (mounted) {
-      setState(() => _busyOcr = false);
+    OcrScanResult? scanResult;
+    try {
+      scanResult = await tools.scanReceipt(source);
+    } catch (_) {
+      if (!context.mounted) return;
+      _showSnack(
+        _tr(context, 'OCR failed or canceled.', 'OCR echoue ou annule.'),
+      );
+      return;
+    } finally {
+      if (mounted) setState(() => _busyOcr = false);
     }
+    if (!context.mounted) return;
 
+    final OcrScanResult? result = scanResult;
     if (result == null) {
       final String? errorMessage = tools.lastOcrError;
       _showSnack(
@@ -1636,6 +1678,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          scrollable: true,
           title: Text(_tr(context, 'OCR Result', 'Resultat OCR')),
           content: SingleChildScrollView(
             child: Column(
@@ -1652,6 +1695,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<ExpenseCategory>(
+                  isExpanded: true,
                   initialValue: selectedCategory,
                   items: ExpenseCategory.values
                       .map(
@@ -1726,6 +1770,7 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop();
                 }
+                if (!context.mounted) return;
                 _showSnack(
                   saved
                       ? _tr(
@@ -1757,74 +1802,83 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) {
-        return Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13293D),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF13293D),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: Color(0xFF42A5F5),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _tr(
-                        context,
-                        'Scan Receipt is Pro',
-                        'Scan facture est Pro',
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFF42A5F5),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _tr(
+                            context,
+                            'Scan Receipt is Pro',
+                            'Scan facture est Pro',
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _tr(
+                      context,
+                      'Upgrade to Pro to unlock OCR receipt scanner.',
+                      'Passez Pro pour activer le scanner OCR.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFAAB4C3),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) {
+                            return;
+                          }
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).push(AppRouter.slideFade(const ProPage()));
+                        });
+                      },
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: Text(
+                        _tr(context, 'Upgrade to Pro', 'Passer a Pro'),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                _tr(
-                  context,
-                  'Upgrade to Pro to unlock OCR receipt scanner.',
-                  'Passez Pro pour activer le scanner OCR.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFAAB4C3),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) {
-                        return;
-                      }
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(AppRouter.slideFade(const ProPage()));
-                    });
-                  },
-                  icon: const Icon(Icons.lock_open_rounded),
-                  label: Text(_tr(context, 'Upgrade to Pro', 'Passer a Pro')),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -1997,4 +2051,3 @@ class _ToolGuideItem {
   final String example;
   final Color color;
 }
-

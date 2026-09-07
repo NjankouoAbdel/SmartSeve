@@ -113,7 +113,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 18),
                         Center(
                           child: Text(
-                            '© 2026 SMART DAILY',
+                            '© 2026 SMART SAVE',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: const Color(0xFF7F8BA0)),
                           ),
@@ -177,7 +177,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _headerCard(BuildContext context, SettingsController settings) {
     return Container(
       width: double.infinity,
-      height: 92,
+      constraints: const BoxConstraints(minHeight: 92),
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Row(
@@ -201,11 +201,12 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(width: 14),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'SMART DAILY',
+                  'SMART SAVE',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontSize: 16,
@@ -1309,7 +1310,7 @@ class _SettingsPageState extends State<SettingsPage> {
     showDialog<void>(
       context: context,
       builder: (BuildContext dctx) => AlertDialog(
-        title: Text(_t('About SMART DAILY')),
+        title: Text(_t('About SMART SAVE')),
         content: Text(_t('Premium expense manager.\nVersion 1.0.0')),
         actions: <Widget>[
           TextButton(
@@ -1454,56 +1455,61 @@ class SettingsRow extends StatelessWidget {
                 height: rowHeight,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF142A3F),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(icon, color: iconColor, size: 20),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: titleColor,
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: const Color(0xFFAAB4C3),
-                                    fontSize: 12.5,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (trailing != null)
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: maxTrailingWidth,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: <Widget>[
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF142A3F),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          child: trailing!,
+                          child: Icon(icon, color: iconColor, size: 20),
                         ),
-                    ],
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: titleColor,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: const Color(0xFFAAB4C3),
+                                      fontSize: 12.5,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (trailing != null)
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxTrailingWidth.clamp(
+                                0,
+                                constraints.maxWidth * 0.45,
+                              ),
+                            ),
+                            child: trailing!,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1641,15 +1647,19 @@ class _BottomSheetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13293D),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF13293D),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
@@ -1680,4 +1690,3 @@ class _FeatureLine extends StatelessWidget {
     );
   }
 }
-

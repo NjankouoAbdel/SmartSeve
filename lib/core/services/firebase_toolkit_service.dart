@@ -298,7 +298,7 @@ class FirebaseToolkitService {
       return;
     }
     try {
-      throw StateError('Crash test from SMART DAILY tools center.');
+      throw StateError('Crash test from SMART SAVE tools center.');
     } catch (error, stackTrace) {
       await recordNonFatal(error, stackTrace);
     }

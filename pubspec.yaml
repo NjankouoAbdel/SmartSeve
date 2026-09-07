@@ -1,5 +1,5 @@
 name: wfer_flousk_firebase
-description: "Smart Daily Expense Manager Firebase"
+description: "SMART SAVE Expense Manager Firebase"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -56,11 +56,11 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/icons/Logo.png
+  image_path: assets/icons/Logo.jpeg
   min_sdk_android: 21
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/icons/Logo.png
+  image: assets/icons/Logo.jpeg
   android: true
   ios: false

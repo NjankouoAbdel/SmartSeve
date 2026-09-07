@@ -65,38 +65,61 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     onPageChanged: (int value) {
                       setState(() => _currentPage = value);
                     },
-                    children: <Widget>[
-                      _profileFormPage(context),
-                      _guidePage(
-                        context,
-                        icon: Icons.dashboard_customize_rounded,
-                        title: 'How the app works',
-                        description:
-                            'Home gives quick overview, Add saves expense, Statistics shows insights, Settings controls your preferences.',
-                        example:
-                            'Example: Add 45.00 MAD in Food and track monthly trend instantly.',
-                        highlights: const <String>[
-                          'Quick Add',
-                          'Smart Stats',
-                          'Clean Settings',
-                        ],
-                      ),
-                      _guidePage(
-                        context,
-                        icon: Icons.lightbulb_rounded,
-                        title: 'Smart usage tips',
-                        description:
-                            'Set monthly income and savings goal to get a clear spend-vs-save view before month end.',
-                        example:
-                            'Example: Income 7000 MAD, goal 1200 MAD, app helps keep spending under control.',
-                        highlights: const <String>[
-                          'Income Plan',
-                          'Savings Goal',
-                          'Monthly Control',
-                        ],
-                      ),
-                      _welcomePage(context),
-                    ],
+                    children:
+                        <Widget>[
+                              _profileFormPage(context),
+                              _guidePage(
+                                context,
+                                icon: Icons.dashboard_customize_rounded,
+                                title: 'How the app works',
+                                description:
+                                    'Home gives quick overview, Add saves expense, Statistics shows insights, Settings controls your preferences.',
+                                example:
+                                    'Example: Add 45.00 MAD in Food and track monthly trend instantly.',
+                                highlights: const <String>[
+                                  'Quick Add',
+                                  'Smart Stats',
+                                  'Clean Settings',
+                                ],
+                              ),
+                              _guidePage(
+                                context,
+                                icon: Icons.lightbulb_rounded,
+                                title: 'Smart usage tips',
+                                description:
+                                    'Set monthly income and savings goal to get a clear spend-vs-save view before month end.',
+                                example:
+                                    'Example: Income 7000 MAD, goal 1200 MAD, app helps keep spending under control.',
+                                highlights: const <String>[
+                                  'Income Plan',
+                                  'Savings Goal',
+                                  'Monthly Control',
+                                ],
+                              ),
+                              _welcomePage(context),
+                            ]
+                            .map(
+                              (Widget page) => LayoutBuilder(
+                                builder:
+                                    (
+                                      BuildContext context,
+                                      BoxConstraints constraints,
+                                    ) {
+                                      return SingleChildScrollView(
+                                        keyboardDismissBehavior:
+                                            ScrollViewKeyboardDismissBehavior
+                                                .onDrag,
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: constraints.maxHeight,
+                                          ),
+                                          child: page,
+                                        ),
+                                      );
+                                    },
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -131,7 +154,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
         Expanded(
           child: Text(
-            _t('Welcome to SMART DAILY', fr: 'Bienvenue sur SMART DAILY'),
+            _t('Welcome to SMART SAVE', fr: 'Bienvenue sur SMART SAVE'),
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -166,7 +189,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                _t('Enter your first and last name.', fr: 'Entrez votre prenom et nom.'),
+                _t(
+                  'Enter your first and last name.',
+                  fr: 'Entrez votre prenom et nom.',
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: UiTokens.spacingMd),
@@ -179,7 +205,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
                 validator: (String? value) {
                   if ((value ?? '').trim().isEmpty) {
-                    return _t('First name is required', fr: 'Le prenom est obligatoire');
+                    return _t(
+                      'First name is required',
+                      fr: 'Le prenom est obligatoire',
+                    );
                   }
                   return null;
                 },
@@ -194,7 +223,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
                 validator: (String? value) {
                   if ((value ?? '').trim().isEmpty) {
-                    return _t('Last name is required', fr: 'Le nom est obligatoire');
+                    return _t(
+                      'Last name is required',
+                      fr: 'Le nom est obligatoire',
+                    );
                   }
                   return null;
                 },
@@ -288,7 +320,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                _t('Premium Quick Guide', fr: 'Guide rapide premium'),
+                                _t(
+                                  'Premium Quick Guide',
+                                  fr: 'Guide rapide premium',
+                                ),
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: AppColors.softGrayText,
@@ -479,7 +514,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const SizedBox(height: 8),
               Text(
                 _t(
-                  'Your smart daily expense manager is ready.',
+                  'Your SMART SAVE expense manager is ready.',
                   fr: 'Votre gestionnaire intelligent de depenses est pret.',
                 ),
                 textAlign: TextAlign.center,
@@ -523,7 +558,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: OutlinedButton.icon(
             onPressed: (_busy || isFirst) ? null : _onLastPressed,
             icon: const Icon(Icons.arrow_back_rounded, size: 18),
-            label: Text(_t('Last', fr: 'Precedent')),
+            label: Text(
+              _t('Last', fr: 'Precedent'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               foregroundColor: Colors.white,
@@ -584,15 +623,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            Text(
-                              isLast
-                                  ? _t('Start', fr: 'Commencer')
-                                  : _t('Next', fr: 'Suivant'),
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                            Flexible(
+                              child: Text(
+                                isLast
+                                    ? _t('Start', fr: 'Commencer')
+                                    : _t('Next', fr: 'Suivant'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
                             ),
                             const SizedBox(width: 6),
                             Icon(
@@ -643,20 +686,37 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finishOnboarding() async {
+    if (_busy) return;
     setState(() => _busy = true);
-    final SettingsController settings = context.read<SettingsController>();
-    await settings.completeOnboarding(
-      firstName: _firstNameController.text,
-      lastName: _lastNameController.text,
-    );
+    try {
+      final SettingsController settings = context.read<SettingsController>();
+      await settings.completeOnboarding(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+      );
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(
+        context,
+      ).pushReplacement(AppRouter.slideFade(const AccountSelectorPage()));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Unable to save. Please try again.',
+              fr: 'Enregistrement impossible. Veuillez reessayer.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-
-    Navigator.of(
-      context,
-    ).pushReplacement(AppRouter.slideFade(const AccountSelectorPage()));
   }
 
   Future<void> _goToPage(int page) async {
@@ -677,4 +737,3 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await _goToPage(_lastPageIndex);
   }
 }
-

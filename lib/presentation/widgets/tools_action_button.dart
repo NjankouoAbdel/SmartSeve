@@ -24,6 +24,8 @@ class ToolsActionButton extends StatelessWidget {
                 final TabController? tabController =
                     DefaultTabController.maybeOf(context);
                 if (openNotificationsTab &&
+                    context.findAncestorWidgetOfExactType<ToolsCenterPage>() !=
+                        null &&
                     tabController != null &&
                     tabController.length > 1) {
                   tabController.animateTo(1);
@@ -67,4 +69,3 @@ class ToolsActionButton extends StatelessWidget {
     );
   }
 }
-

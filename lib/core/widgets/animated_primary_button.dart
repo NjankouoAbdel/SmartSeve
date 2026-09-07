@@ -95,14 +95,20 @@ class _AnimatedPrimaryButtonState extends State<AnimatedPrimaryButton> {
                               tag: widget.heroTag!,
                               child: Icon(widget.icon, color: Colors.white),
                             ),
-                    if (!widget.isLoading &&
-                        (widget.icon != null || widget.isSuccess))
+                    if (widget.isLoading ||
+                        widget.icon != null ||
+                        widget.isSuccess)
                       const SizedBox(width: 8),
-                    Text(
-                      widget.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -115,4 +121,3 @@ class _AnimatedPrimaryButtonState extends State<AnimatedPrimaryButton> {
     );
   }
 }
-

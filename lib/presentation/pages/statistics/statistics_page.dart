@@ -190,9 +190,18 @@ class _StatisticsPageState extends State<StatisticsPage> {
                 ),
                 Row(
                   children: <Widget>[
-                    _segmentButton(_t('Daily', fr: 'Quotidien'), StatsSegment.daily),
-                    _segmentButton(_t('Weekly', fr: 'Hebdomadaire'), StatsSegment.weekly),
-                    _segmentButton(_t('Monthly', fr: 'Mensuel'), StatsSegment.monthly),
+                    _segmentButton(
+                      _t('Daily', fr: 'Quotidien'),
+                      StatsSegment.daily,
+                    ),
+                    _segmentButton(
+                      _t('Weekly', fr: 'Hebdomadaire'),
+                      StatsSegment.weekly,
+                    ),
+                    _segmentButton(
+                      _t('Monthly', fr: 'Mensuel'),
+                      StatsSegment.monthly,
+                    ),
                   ],
                 ),
               ],
@@ -214,6 +223,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
         child: Center(
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFFAAB4C3),
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
@@ -242,15 +253,17 @@ class _StatisticsPageState extends State<StatisticsPage> {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Text(
-                _t('Spending by Category', fr: 'Depenses par categorie'),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Expanded(
+                child: Text(
+                  _t('Spending by Category', fr: 'Depenses par categorie'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Icon(
                 Icons.tune_rounded,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -330,10 +343,18 @@ class _StatisticsPageState extends State<StatisticsPage> {
                                     ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                topSlice.label,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: const Color(0xFFAAB4C3)),
+                              SizedBox(
+                                width: centerSpace * 1.6,
+                                child: Text(
+                                  topSlice.label,
+                                  maxLines: 2,
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFFAAB4C3),
+                                      ),
+                                ),
                               ),
                             ],
                           ),
@@ -362,17 +383,23 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     Expanded(
                       child: Text(
                         slice.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white,
                           fontSize: 14,
                         ),
                       ),
                     ),
-                    Text(
-                      CurrencyUtils.formatAmount(slice.amount, currencyCode),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFFAAB4C3),
-                        fontSize: 12,
+                    Flexible(
+                      child: Text(
+                        CurrencyUtils.formatAmount(slice.amount, currencyCode),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFFAAB4C3),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1013,4 +1040,3 @@ class _LineSeries {
         incomeValues.any((double value) => value > 0);
   }
 }
-

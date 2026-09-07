@@ -36,7 +36,7 @@ class ExportService {
             pw.Header(
               level: 0,
               child: pw.Text(
-                'Smart Daily Expense Manager_firebase - Expense Report',
+                'SMART SAVE Expense Manager_firebase - Expense Report',
               ),
             ),
             pw.SizedBox(height: 8),

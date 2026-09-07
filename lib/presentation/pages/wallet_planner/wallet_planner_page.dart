@@ -243,15 +243,15 @@ class _WalletPlannerPageState extends State<WalletPlannerPage> {
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-            _progressRow(
-              context,
-              leftLabel:
-                  '${_t('Income', fr: 'Revenu')}: ${CurrencyUtils.formatAmount(realMonthIncome, currencyCode)}',
-              rightLabel:
-                  '${_t('Spent', fr: 'Depense')}: ${CurrencyUtils.formatAmount(realMonthSpent, currencyCode)}',
-              progress: realMonthIncome <= 0
-                  ? 0
-                  : (realMonthSpent / realMonthIncome).clamp(0, 1),
+          _progressRow(
+            context,
+            leftLabel:
+                '${_t('Income', fr: 'Revenu')}: ${CurrencyUtils.formatAmount(realMonthIncome, currencyCode)}',
+            rightLabel:
+                '${_t('Spent', fr: 'Depense')}: ${CurrencyUtils.formatAmount(realMonthSpent, currencyCode)}',
+            progress: realMonthIncome <= 0
+                ? 0
+                : (realMonthSpent / realMonthIncome).clamp(0, 1),
             fill: const LinearGradient(
               colors: <Color>[AppColors.primaryBlue, AppColors.gradientBlue2],
             ),
@@ -350,7 +350,10 @@ class _WalletPlannerPageState extends State<WalletPlannerPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            _t('Category monthly limits', fr: 'Limites mensuelles par categorie'),
+            _t(
+              'Category monthly limits',
+              fr: 'Limites mensuelles par categorie',
+            ),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -509,6 +512,7 @@ class _WalletPlannerPageState extends State<WalletPlannerPage> {
   }
 
   Future<void> _savePlan() async {
+    if (_saving) return;
     final SettingsController settings = context.read<SettingsController>();
     final ExpenseController expenses = context.read<ExpenseController>();
     final ToolsController tools = context.read<ToolsController>();
@@ -521,35 +525,50 @@ class _WalletPlannerPageState extends State<WalletPlannerPage> {
     };
 
     setState(() => _saving = true);
-    await settings.setMonthlyIncome(income);
-    await settings.setMonthlySavingsGoal(goal);
-    await settings.setCategoryMonthlyPlans(planValues);
-    await tools.evaluateSmartSavingPlan(
-      totalIncomeForMonth:
-          income +
-          expenses.monthlyIncomeTransactionsForAccount(
-            settings.activeBankAccountId,
-          ),
-      savingsGoal: goal,
-      spentForMonth: expenses.monthlySpendingForAccount(
-        settings.activeBankAccountId,
-      ),
-      currencyCode: settings.currencyCode,
-    );
-    if (!mounted) {
-      return;
-    }
-    setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _t(
-            'Wallet plan saved successfully.',
-            fr: 'Plan de portefeuille enregistre avec succes.',
+    try {
+      await settings.setMonthlyIncome(income);
+      await settings.setMonthlySavingsGoal(goal);
+      await settings.setCategoryMonthlyPlans(planValues);
+      await tools.evaluateSmartSavingPlan(
+        totalIncomeForMonth:
+            income +
+            expenses.monthlyIncomeTransactionsForAccount(
+              settings.activeBankAccountId,
+            ),
+        savingsGoal: goal,
+        spentForMonth: expenses.monthlySpendingForAccount(
+          settings.activeBankAccountId,
+        ),
+        currencyCode: settings.currencyCode,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Wallet plan saved successfully.',
+              fr: 'Plan de portefeuille enregistre avec succes.',
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Unable to save. Please try again.',
+              fr: 'Enregistrement impossible. Veuillez reessayer.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   double _valueOf(TextEditingController? controller) {
@@ -584,4 +603,3 @@ class _WalletPlannerPageState extends State<WalletPlannerPage> {
     }
   }
 }
-

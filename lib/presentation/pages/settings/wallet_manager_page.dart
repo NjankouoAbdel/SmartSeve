@@ -442,65 +442,77 @@ class _WalletManagerPageState extends State<WalletManagerPage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) {
-        return Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13293D),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF13293D),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: Color(0xFF42A5F5),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFF42A5F5),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _t(
+                            'More Wallets = Pro',
+                            fr: 'Plus de portefeuilles = Pro',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 10),
                   Text(
-                    _t('More Wallets = Pro', fr: 'Plus de portefeuilles = Pro'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    _t(
+                      'Free plan supports up to 2 wallets. Upgrade to Pro to add unlimited wallets.',
+                      fr: 'Le plan gratuit prend en charge jusqu a 2 portefeuilles. Passez a Pro pour en ajouter en illimite.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFAAB4C3),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) {
+                            return;
+                          }
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).push(AppRouter.slideFade(const ProPage()));
+                        });
+                      },
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                _t(
-                  'Free plan supports up to 2 wallets. Upgrade to Pro to add unlimited wallets.',
-                  fr: 'Le plan gratuit prend en charge jusqu a 2 portefeuilles. Passez a Pro pour en ajouter en illimite.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFAAB4C3),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) {
-                        return;
-                      }
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(AppRouter.slideFade(const ProPage()));
-                    });
-                  },
-                  icon: const Icon(Icons.lock_open_rounded),
-                  label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -877,4 +889,3 @@ class _WalletManagerPageState extends State<WalletManagerPage> {
     );
   }
 }
-

@@ -65,19 +65,21 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
                   showBackToHome: true,
                 ),
                 const SizedBox(height: UiTokens.spacingXs),
-                _headerCard(context),
-                const SizedBox(height: 10),
                 Expanded(
-                  child: _messages.isEmpty
-                      ? const SizedBox.shrink()
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          itemCount: _messages.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            return _messageBubble(context, _messages[index]);
-                          },
-                        ),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    itemCount: _messages.length + 1,
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _headerCard(context),
+                        );
+                      }
+                      return _messageBubble(context, _messages[index - 1]);
+                    },
+                  ),
                 ),
                 if (_isReplying)
                   Padding(
@@ -479,4 +481,3 @@ class _ChatMessage {
   final String text;
   final bool fromUser;
 }
-

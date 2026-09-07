@@ -129,6 +129,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         _selectedCategory == ExpenseCategory.other &&
         note.isEmpty) {
       final String? customOther = await _promptOtherCategoryName();
+      if (!mounted) return;
       if (customOther == null || customOther.trim().isEmpty) {
         return;
       }
@@ -263,11 +264,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         fr: 'Erreur reseau pendant la sauvegarde. Verifiez la connexion et reessayez.',
       );
     }
-    return _t(
-      'Save failed: ',
-      fr: 'Echec de sauvegarde : ',
-    ) +
-        raw;
+    return _t('Save failed: ', fr: 'Echec de sauvegarde : ') + raw;
   }
 
   @override
@@ -833,139 +830,158 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   });
                 }
 
-                return Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF13293D),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                return SafeArea(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(context).bottom,
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          const Icon(
-                            Icons.calculate_rounded,
-                            color: AppColors.skyBlue,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _t('Calculator', fr: 'Calculatrice'),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
+                    child: Container(
+                      margin: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF13293D),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
                           color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          expression,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            <String>[
-                                  '7',
-                                  '8',
-                                  '9',
-                                  '/',
-                                  '4',
-                                  '5',
-                                  '6',
-                                  '*',
-                                  '1',
-                                  '2',
-                                  '3',
-                                  '-',
-                                  '.',
-                                  '0',
-                                  'C',
-                                  '+',
-                                ]
-                                .map((String value) {
-                                  final bool isOperator = '+-*/'.contains(
-                                    value,
-                                  );
-                                  final bool isClear = value == 'C';
-                                  return SizedBox(
-                                    width:
-                                        (MediaQuery.of(context).size.width -
-                                            80) /
-                                        4,
-                                    child: ElevatedButton(
-                                      onPressed: () {
-                                        if (isClear) {
-                                          setSheetState(() => expression = '0');
-                                          return;
-                                        }
-                                        append(value);
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: isOperator
-                                            ? AppColors.primaryBlue
-                                            : Colors.white.withValues(
-                                                alpha: 0.10,
-                                              ),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      child: Text(value),
+                      child: LayoutBuilder(
+                        builder:
+                            (
+                              BuildContext context,
+                              BoxConstraints constraints,
+                            ) => Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.calculate_rounded,
+                                      color: AppColors.skyBlue,
                                     ),
-                                  );
-                                })
-                                .toList(growable: false),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _t('Calculator', fr: 'Calculatrice'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () =>
+                                          Navigator.of(sheetContext).pop(),
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Text(
+                                    expression,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children:
+                                      <String>[
+                                            '7',
+                                            '8',
+                                            '9',
+                                            '/',
+                                            '4',
+                                            '5',
+                                            '6',
+                                            '*',
+                                            '1',
+                                            '2',
+                                            '3',
+                                            '-',
+                                            '.',
+                                            '0',
+                                            'C',
+                                            '+',
+                                          ]
+                                          .map((String value) {
+                                            final bool isOperator = '+-*/'
+                                                .contains(value);
+                                            final bool isClear = value == 'C';
+                                            return SizedBox(
+                                              width:
+                                                  (constraints.maxWidth - 24) /
+                                                  4,
+                                              child: ElevatedButton(
+                                                onPressed: () {
+                                                  if (isClear) {
+                                                    setSheetState(
+                                                      () => expression = '0',
+                                                    );
+                                                    return;
+                                                  }
+                                                  append(value);
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: isOperator
+                                                      ? AppColors.primaryBlue
+                                                      : Colors.white.withValues(
+                                                          alpha: 0.10,
+                                                        ),
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: Text(value),
+                                              ),
+                                            );
+                                          })
+                                          .toList(growable: false),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      final double? value = _resolveAmountInput(
+                                        expression,
+                                      );
+                                      if (value == null || value <= 0) {
+                                        return;
+                                      }
+                                      Navigator.of(
+                                        sheetContext,
+                                      ).pop(value.toStringAsFixed(2));
+                                    },
+                                    icon: const Icon(Icons.check_rounded),
+                                    label: Text(
+                                      _t('Use Result', fr: 'Utiliser resultat'),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                       ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            final double? value = _resolveAmountInput(
-                              expression,
-                            );
-                            if (value == null || value <= 0) {
-                              return;
-                            }
-                            Navigator.of(
-                              sheetContext,
-                            ).pop(value.toStringAsFixed(2));
-                          },
-                          icon: const Icon(Icons.check_rounded),
-                          label: Text(
-                            _t('Use Result', fr: 'Utiliser resultat'),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -1108,4 +1124,3 @@ class _AddExpensePageState extends State<AddExpensePage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
-

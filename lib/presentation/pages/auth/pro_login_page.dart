@@ -203,7 +203,10 @@ class _ProLoginPageState extends State<ProLoginPage>
                               const SizedBox(height: UiTokens.spacingMd),
                               AnimatedPrimaryButton(
                                 label: _isSignUp
-                                    ? _t('Create Account', fr: 'Creer un compte')
+                                    ? _t(
+                                        'Create Account',
+                                        fr: 'Creer un compte',
+                                      )
                                     : _t(
                                         'Login Securely',
                                         fr: 'Connexion securisee',
@@ -274,16 +277,19 @@ class _ProLoginPageState extends State<ProLoginPage>
                             ),
                           ),
                         const SizedBox(height: 8),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: <Widget>[
                             OutlinedButton.icon(
                               onPressed: () {
                                 tools.refreshUsage(isProLocal: settings.isPro);
                               },
                               icon: const Icon(Icons.refresh_rounded),
-                              label: Text(_t('Refresh Usage', fr: 'Actualiser usage')),
+                              label: Text(
+                                _t('Refresh Usage', fr: 'Actualiser usage'),
+                              ),
                             ),
-                            const SizedBox(width: 8),
                             if (tools.userEmail != null)
                               OutlinedButton.icon(
                                 onPressed: tools.signOut,
@@ -314,6 +320,7 @@ class _ProLoginPageState extends State<ProLoginPage>
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final FormState? form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -325,37 +332,51 @@ class _ProLoginPageState extends State<ProLoginPage>
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
 
-    final String? error = _isSignUp
-        ? await tools.signUp(email, password)
-        : await tools.signIn(email, password);
+    final bool isSignUp = _isSignUp;
+    try {
+      final String? error = isSignUp
+          ? await tools.signUp(email, password)
+          : await tools.signIn(email, password);
 
-    await tools.refreshUsage(isProLocal: settings.isPro);
+      await tools.refreshUsage(isProLocal: settings.isPro);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    setState(() => _submitting = false);
+      if (error != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+        return;
+      }
 
-    if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isSignUp
-              ? _t(
-                  'Account created successfully.',
-                  fr: 'Compte cree avec succes.',
-                )
-              : _t('Logged in successfully.', fr: 'Connexion reussie.'),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isSignUp
+                ? _t(
+                    'Account created successfully.',
+                    fr: 'Compte cree avec succes.',
+                  )
+                : _t('Logged in successfully.', fr: 'Connexion reussie.'),
+          ),
         ),
-      ),
-    );
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Unable to complete the request. Please try again.',
+              fr: 'Impossible de terminer la demande. Veuillez reessayer.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 }
-

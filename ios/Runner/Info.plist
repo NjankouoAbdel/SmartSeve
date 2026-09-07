@@ -27,9 +27,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>SMART DAILY uses the camera to scan receipts.</string>
+	<string>SMART SAVE uses the camera to scan receipts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>SMART DAILY accesses photos to scan receipt images.</string>
+	<string>SMART SAVE accesses photos to scan receipt images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

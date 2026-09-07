@@ -60,6 +60,9 @@ class _SplashPageState extends State<SplashPage>
     }
     final HomeWidgetQuickAction? launchAction = await homeWidgetService
         .initiallyLaunchedQuickAction();
+    if (!mounted || !navigator.mounted) {
+      return;
+    }
     final Widget nextPage = settings.hasCompletedOnboarding
         ? (launchAction != null && launchAction != HomeWidgetQuickAction.openApp
               ? MainShellPage(initialQuickAction: launchAction)
@@ -93,7 +96,7 @@ class _SplashPageState extends State<SplashPage>
                 children: <Widget>[
                   AppLogo(
                     size: logoSize,
-                    assetPath: 'assets/icons/app_icon.png',
+                    assetPath: 'assets/icons/app_icon.jpeg',
                     heroTag: 'splash_logo',
                   ),
                   const SizedBox(height: 18),
@@ -118,4 +121,3 @@ class _SplashPageState extends State<SplashPage>
     );
   }
 }
-

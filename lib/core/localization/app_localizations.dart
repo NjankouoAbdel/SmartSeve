@@ -109,7 +109,7 @@ class AppLocalizations {
   static const Map<String, Map<String, String>>
   _values = <String, Map<String, String>>{
     'en': <String, String>{
-      'appName': 'Smart Daily Expense Manager_firebase',
+      'appName': 'SMART SAVE Expense Manager_firebase',
       'appTagline': 'Track smarter. Spend better every day.',
       'appTaglineShort': 'Track smarter. Spend better.',
       'tabHome': 'Home',

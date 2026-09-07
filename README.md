@@ -1,4 +1,4 @@
-# Smart Daily Expense Manager_firebase
+# SMART SAVE Expense Manager_firebase
 
 Flutter expense manager with direct Firebase backend.
 

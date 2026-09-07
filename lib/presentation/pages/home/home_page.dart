@@ -1277,14 +1277,16 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: compact ? 10 : 14),
                 Row(
                   children: <Widget>[
-                    Text(
-                      _t('Updated just now', fr: 'Mis a jour a l instant'),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.70),
+                    Expanded(
+                      child: Text(
+                        _t('Updated just now', fr: 'Mis a jour a l instant'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.70),
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     _MiniSparkline(
                       points: sparklinePoints,
                       width: compact ? 78 : 90,
@@ -1340,7 +1342,10 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 8,
+          runSpacing: 4,
           children: <Widget>[
             Text(
               _t('Quick Actions', fr: 'Actions rapides'),
@@ -1350,7 +1355,6 @@ class _HomePageState extends State<HomePage> {
                 color: Colors.white,
               ),
             ),
-            const Spacer(),
             TextButton(
               onPressed: () {
                 Navigator.of(context).push(
@@ -1474,51 +1478,57 @@ class _HomePageState extends State<HomePage> {
 
   Widget _emptyTransactions(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF142A3F),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF142A3F),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: const Icon(
+                Icons.receipt_long_rounded,
+                color: Color(0xFF42A5F5),
+                size: 30,
+              ),
             ),
-            child: const Icon(
-              Icons.receipt_long_rounded,
-              color: Color(0xFF42A5F5),
-              size: 30,
+            const SizedBox(height: 12),
+            Text(
+              _t(
+                'No transactions yet',
+                fr: 'Aucune transaction pour le moment',
+              ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _t('No transactions yet', fr: 'Aucune transaction pour le moment'),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+            const SizedBox(height: 4),
+            Text(
+              _t(
+                'Add your first expense to see insights',
+                fr: 'Ajoutez votre premiere depense pour voir des insights',
+              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: const Color(0xFFAAB4C3)),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _t(
-              'Add your first expense to see insights',
-              fr: 'Ajoutez votre premiere depense pour voir des insights',
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: widget.onQuickAddTap,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF42A5F5),
+              ),
+              icon: const Icon(Icons.add_rounded),
+              label: Text(_t('Add Expense', fr: 'Ajouter depense')),
             ),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: const Color(0xFFAAB4C3)),
-          ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: widget.onQuickAddTap,
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF42A5F5),
-            ),
-            icon: const Icon(Icons.add_rounded),
-            label: Text(_t('Add Expense', fr: 'Ajouter depense')),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1765,65 +1775,75 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) {
-        return Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13293D),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF13293D),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: Color(0xFF42A5F5),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFF42A5F5),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _t(
+                          'Scan Receipt is Pro',
+                          fr: 'Le scan de recu est Pro',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 10),
                   Text(
-                    _t('Scan Receipt is Pro', fr: 'Le scan de recu est Pro'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    _t(
+                      'Unlock Pro to scan receipts automatically and create expenses faster.',
+                      fr: 'Debloquez Pro pour scanner les recus automatiquement et creer des depenses plus vite.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFAAB4C3),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) {
+                            return;
+                          }
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).push(AppRouter.slideFade(const ProPage()));
+                        });
+                      },
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                _t(
-                  'Unlock Pro to scan receipts automatically and create expenses faster.',
-                  fr: 'Debloquez Pro pour scanner les recus automatiquement et creer des depenses plus vite.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFAAB4C3),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) {
-                        return;
-                      }
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(AppRouter.slideFade(const ProPage()));
-                    });
-                  },
-                  icon: const Icon(Icons.lock_open_rounded),
-                  label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -1836,65 +1856,75 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) {
-        return Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13293D),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF13293D),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: Color(0xFF42A5F5),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFF42A5F5),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _t(
+                          'More Wallets = Pro',
+                          fr: 'Plus de portefeuilles = Pro',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 10),
                   Text(
-                    _t('More Wallets = Pro', fr: 'Plus de portefeuilles = Pro'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    _t(
+                      'Free plan supports up to 2 wallets. Upgrade to Pro to add unlimited wallets.',
+                      fr: 'Le plan gratuit prend en charge jusqu a 2 portefeuilles. Passez a Pro pour en ajouter en illimite.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFAAB4C3),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) {
+                            return;
+                          }
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).push(AppRouter.slideFade(const ProPage()));
+                        });
+                      },
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                _t(
-                  'Free plan supports up to 2 wallets. Upgrade to Pro to add unlimited wallets.',
-                  fr: 'Le plan gratuit prend en charge jusqu a 2 portefeuilles. Passez a Pro pour en ajouter en illimite.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFAAB4C3),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) {
-                        return;
-                      }
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(AppRouter.slideFade(const ProPage()));
-                    });
-                  },
-                  icon: const Icon(Icons.lock_open_rounded),
-                  label: Text(_t('Upgrade to Pro', fr: 'Passer a Pro')),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -2244,6 +2274,8 @@ class TransactionRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     _subtitle(context, transaction.date, localeCode),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontSize: 12,
                       color: const Color(0xFFAAB4C3),
@@ -2593,4 +2625,3 @@ class DashboardTransactionPreview {
     ];
   }
 }
-

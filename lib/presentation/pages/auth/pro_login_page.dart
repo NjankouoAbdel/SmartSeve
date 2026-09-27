@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:wfer_flousk_firebase/core/constants/app_colors.dart';
 import 'package:wfer_flousk_firebase/core/constants/ui_tokens.dart';
 import 'package:wfer_flousk_firebase/core/localization/app_localizations.dart';
+import 'package:wfer_flousk_firebase/core/navigation/app_router.dart';
 import 'package:wfer_flousk_firebase/core/services/firebase_toolkit_service.dart';
 import 'package:wfer_flousk_firebase/core/widgets/animated_primary_button.dart';
 import 'package:wfer_flousk_firebase/core/widgets/fintech_page_app_bar.dart';
@@ -11,6 +12,7 @@ import 'package:wfer_flousk_firebase/core/widgets/gradient_background.dart';
 import 'package:wfer_flousk_firebase/core/widgets/responsive_page_body.dart';
 import 'package:wfer_flousk_firebase/presentation/controllers/settings_controller.dart';
 import 'package:wfer_flousk_firebase/presentation/controllers/tools_controller.dart';
+import 'package:wfer_flousk_firebase/presentation/pages/auth/require_login_page.dart';
 
 class ProLoginPage extends StatefulWidget {
   const ProLoginPage({super.key});
@@ -292,7 +294,10 @@ class _ProLoginPageState extends State<ProLoginPage>
                             ),
                             if (tools.userEmail != null)
                               OutlinedButton.icon(
-                                onPressed: tools.signOut,
+                                onPressed: () => _signOutAndRequireLogin(
+                                  context,
+                                  tools,
+                                ),
                                 icon: const Icon(Icons.logout_rounded),
                                 label: Text(_t('Logout', fr: 'Deconnexion')),
                               ),
@@ -379,4 +384,22 @@ class _ProLoginPageState extends State<ProLoginPage>
       if (mounted) setState(() => _submitting = false);
     }
   }
+}
+
+/// Signs the current user out, then sends them back to the mandatory
+/// [RequireLoginPage] gate — a signed-out user is never left inside the
+/// app, since every screen past the splash requires a real email account.
+Future<void> _signOutAndRequireLogin(
+  BuildContext context,
+  ToolsController tools,
+) async {
+  final NavigatorState navigator = Navigator.of(context);
+  await tools.signOut();
+  if (!navigator.mounted) {
+    return;
+  }
+  navigator.pushAndRemoveUntil(
+    AppRouter.slideFade(const RequireLoginPage()),
+    (Route<dynamic> route) => false,
+  );
 }

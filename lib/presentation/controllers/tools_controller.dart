@@ -83,6 +83,7 @@ class ToolsController extends ChangeNotifier {
   bool get cloudAvailable => _firebaseToolkitService.isAvailable;
   String? get cloudInitError => _firebaseToolkitService.initError;
   String? get userEmail => _firebaseToolkitService.currentUserEmail;
+  bool get isLoggedIn => _firebaseToolkitService.isLoggedIn;
   bool get crashMonitoringEnabled =>
       _firebaseToolkitService.isCrashReportingEnabled;
 

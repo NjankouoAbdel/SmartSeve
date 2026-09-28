@@ -994,6 +994,20 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
                   _tr(context, 'Statement from Gallery', 'Relevé depuis galerie'),
                 ),
               ),
+              OutlinedButton.icon(
+                onPressed: _busyStatementOcr
+                    ? null
+                    : () => _runStatementOcrFromPdf(
+                        context: context,
+                        tools: tools,
+                        expenses: expenses,
+                        settings: settings,
+                      ),
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: Text(
+                  _tr(context, 'Import PDF Statement', 'Importer un PDF'),
+                ),
+              ),
             ],
           ),
           if (tools.lastOcrResult != null) ...<Widget>[
@@ -1891,6 +1905,86 @@ class _ToolsCenterPageState extends State<ToolsCenterPage> {
       return;
     }
 
+    await _showStatementReviewDialog(
+      context: context,
+      tools: tools,
+      result: result,
+      expenses: expenses,
+      settings: settings,
+    );
+  }
+
+  /// Meme flux que [_runStatementOcr] (scan -> revue -> import), mais la
+  /// source est un fichier PDF choisi par l'utilisateur (par exemple un
+  /// relevé bancaire telecharge depuis le site de sa banque) plutot qu'une
+  /// photo prise sur le moment. Voir
+  /// [ToolsController.scanBankStatementFromPdf].
+  Future<void> _runStatementOcrFromPdf({
+    required BuildContext context,
+    required ToolsController tools,
+    required ExpenseController expenses,
+    required SettingsController settings,
+  }) async {
+    if (!settings.isPro) {
+      await _showOcrProGate(context);
+      return;
+    }
+
+    setState(() => _busyStatementOcr = true);
+    BankStatementScanResult? scanResult;
+    try {
+      scanResult = await tools.scanBankStatementFromPdf();
+    } catch (_) {
+      if (!context.mounted) return;
+      _showSnack(
+        _tr(
+          context,
+          'Statement scan failed or canceled.',
+          'Scan du relevé echoue ou annule.',
+        ),
+      );
+      return;
+    } finally {
+      if (mounted) setState(() => _busyStatementOcr = false);
+    }
+    if (!context.mounted) return;
+
+    final BankStatementScanResult? result = scanResult;
+    if (result == null) {
+      final String? errorMessage = tools.lastStatementScanError;
+      _showSnack(
+        errorMessage ??
+            _tr(
+              context,
+              'Statement scan failed or canceled.',
+              'Scan du relevé echoue ou annule.',
+            ),
+      );
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+
+    await _showStatementReviewDialog(
+      context: context,
+      tools: tools,
+      result: result,
+      expenses: expenses,
+      settings: settings,
+    );
+  }
+
+  /// Boite de dialogue de revue/correction des transactions detectees dans un
+  /// relevé bancaire (photo ou PDF), partagee par [_runStatementOcr] et
+  /// [_runStatementOcrFromPdf] pour eviter de dupliquer l'UI de revue.
+  Future<void> _showStatementReviewDialog({
+    required BuildContext context,
+    required ToolsController tools,
+    required BankStatementScanResult result,
+    required ExpenseController expenses,
+    required SettingsController settings,
+  }) async {
     // Chaque transaction reste un objet mutable (voir ScannedTransaction):
     // les champs amount/description/suggestedCategory/included sont modifies
     // directement par les controles ci-dessous, pas besoin de reconstruire

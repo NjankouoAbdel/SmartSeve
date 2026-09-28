@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:wfer_flousk_firebase/core/localization/app_localizations.dart';
 import 'package:wfer_flousk_firebase/core/models/ocr_scan_result.dart';
 import 'package:wfer_flousk_firebase/core/services/csv_service.dart';
+import 'package:wfer_flousk_firebase/core/services/financial_advisor_service.dart';
 import 'package:wfer_flousk_firebase/core/services/firebase_toolkit_service.dart';
 import 'package:wfer_flousk_firebase/core/services/local_notification_service.dart';
 import 'package:wfer_flousk_firebase/core/services/ocr_service.dart';
@@ -26,6 +28,7 @@ class ToolsController extends ChangeNotifier {
     required CsvService csvService,
     required OcrService ocrService,
     required SecurityService securityService,
+    required FinancialAdvisorService financialAdvisorService,
     Uuid? uuid,
   }) : _storeService = storeService,
        _localNotificationService = localNotificationService,
@@ -33,6 +36,7 @@ class ToolsController extends ChangeNotifier {
        _csvService = csvService,
        _ocrService = ocrService,
        _securityService = securityService,
+       _financialAdvisorService = financialAdvisorService,
        _uuid = uuid ?? const Uuid();
 
   final ToolsStoreService _storeService;
@@ -41,6 +45,7 @@ class ToolsController extends ChangeNotifier {
   final CsvService _csvService;
   final OcrService _ocrService;
   final SecurityService _securityService;
+  final FinancialAdvisorService _financialAdvisorService;
   final Uuid _uuid;
 
   static const double _budgetAlert80 = 0.8;
@@ -825,7 +830,28 @@ class ToolsController extends ChangeNotifier {
   Future<OcrScanResult?> scanReceipt(ImageSource source) async {
     _lastOcrError = null;
     try {
-      final OcrScanResult? result = await _ocrService.scanReceipt(source);
+      OcrScanResult? result = await _ocrService.scanReceipt(source);
+      if (result != null) {
+        // Agent de categorisation : tente d'ameliorer, via l'IA, la
+        // categorie devinee localement par mots-cles. Ne bloque jamais le
+        // scan : en cas d'echec (hors-ligne, etc.), la categorie devinee
+        // localement est simplement conservee.
+        final ExpenseCategory? refinedCategory =
+            await _financialAdvisorService.refineSingleCategoryWithAI(
+              rawText: result.rawText,
+              fallback: result.suggestedCategory,
+            );
+        if (refinedCategory != null &&
+            refinedCategory != result.suggestedCategory) {
+          result = OcrScanResult(
+            rawText: result.rawText,
+            amount: result.amount,
+            date: result.date,
+            suggestedNote: result.suggestedNote,
+            suggestedCategory: refinedCategory,
+          );
+        }
+      }
       _lastOcrResult = result;
       if (result != null) {
         await _pushNotice(
@@ -836,6 +862,20 @@ class ToolsController extends ChangeNotifier {
           ),
           tool: 'ocr',
           localNotify: false,
+        );
+        // Archivage pour l'agent memoire (voir FinancialAdvisorService) :
+        // ne bloque jamais le scan, une erreur ici est avalee en silence.
+        unawaited(
+          _financialAdvisorService.archiveScannedDocument(
+            type: 'receipt',
+            rawText: result.rawText,
+            sourceLabel: 'Photo reçu',
+            summary: <String, dynamic>{
+              'amount': result.amount,
+              'date': result.date?.toIso8601String(),
+              'category': result.suggestedCategory.key,
+            },
+          ),
         );
       }
       notifyListeners();
@@ -900,6 +940,12 @@ class ToolsController extends ChangeNotifier {
           .scanBankStatement(source);
       _lastStatementScan = result;
       if (result != null) {
+        // Agent de categorisation : ameliore, via l'IA, les categories
+        // devinees localement pour chaque transaction detectee. Ne bloque
+        // jamais l'import : en cas d'echec, les categories locales restent.
+        await _financialAdvisorService.refineCategoriesWithAI(
+          result.transactions,
+        );
         await _pushNotice(
           title: _t('Statement Scanned', fr: 'Relevé scanné'),
           message: _ta(
@@ -911,6 +957,73 @@ class ToolsController extends ChangeNotifier {
           ),
           tool: 'ocr',
           localNotify: false,
+        );
+        unawaited(
+          _financialAdvisorService.archiveScannedDocument(
+            type: 'statement_photo',
+            rawText: result.rawText,
+            sourceLabel: 'Photo relevé bancaire',
+            summary: <String, dynamic>{
+              'transactionCount': result.transactions.length,
+            },
+          ),
+        );
+      }
+      notifyListeners();
+      return result;
+    } on OcrServiceException catch (error) {
+      _lastStatementScan = null;
+      _lastStatementScanError = error.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _lastStatementScan = null;
+      _lastStatementScanError = _t(
+        'Statement scan failed. Please try again.',
+        fr: 'Echec du scan du relevé. Veuillez reessayer.',
+      );
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Meme principe que [scanBankStatement], mais a partir d'un fichier PDF
+  /// choisi par l'utilisateur (par exemple un relevé bancaire telecharge
+  /// depuis le site de sa banque) plutot qu'une photo prise sur le moment.
+  Future<BankStatementScanResult?> scanBankStatementFromPdf() async {
+    _lastStatementScanError = null;
+    try {
+      final BankStatementScanResult? result = await _ocrService
+          .scanBankStatementFromPdf();
+      _lastStatementScan = result;
+      if (result != null) {
+        // Agent de categorisation : ameliore, via l'IA, les categories
+        // devinees localement pour chaque transaction detectee. Ne bloque
+        // jamais l'import : en cas d'echec, les categories locales restent.
+        await _financialAdvisorService.refineCategoriesWithAI(
+          result.transactions,
+        );
+        await _pushNotice(
+          title: _t('Statement Scanned', fr: 'Relevé scanné'),
+          message: _ta(
+            '{count} transaction(s) detected. Review before importing.',
+            <String, String>{
+              'count': result.transactions.length.toString(),
+            },
+            fr: '{count} transaction(s) detectee(s). A verifier avant import.',
+          ),
+          tool: 'ocr',
+          localNotify: false,
+        );
+        unawaited(
+          _financialAdvisorService.archiveScannedDocument(
+            type: 'statement_pdf',
+            rawText: result.rawText,
+            sourceLabel: 'Import PDF',
+            summary: <String, dynamic>{
+              'transactionCount': result.transactions.length,
+            },
+          ),
         );
       }
       notifyListeners();

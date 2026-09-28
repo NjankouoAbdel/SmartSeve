@@ -1,1 +1,29 @@
-{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"smartsave-perso","appId":"1:951914333528:android:d663426e7e52e4d42c512d","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"smartsave-perso","configurations":{"android":"1:951914333528:android:d663426e7e52e4d42c512d","ios":"1:951914333528:ios:b5daf67137a56b062c512d","macos":"1:951914333528:ios:b5daf67137a56b062c512d","web":"1:951914333528:web:bd4f92614426aa8a2c512d","windows":"1:951914333528:web:c7efeaad64d51a2d2c512d"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "smartsave-perso",
+          "appId": "1:951914333528:android:d663426e7e52e4d42c512d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "smartsave-perso",
+          "configurations": {
+            "android": "1:951914333528:android:d663426e7e52e4d42c512d",
+            "ios": "1:951914333528:ios:b5daf67137a56b062c512d",
+            "macos": "1:951914333528:ios:b5daf67137a56b062c512d",
+            "web": "1:951914333528:web:bd4f92614426aa8a2c512d",
+            "windows": "1:951914333528:web:c7efeaad64d51a2d2c512d"
+          }
+        }
+      }
+    }
+  }
+}

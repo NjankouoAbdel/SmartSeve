@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Cle API Groq (voir lib/core/config/ai_config.dart): ne doit JAMAIS partir
+# sur un depot Git, meme prive. Utilisez ai_config.example.dart comme
+# modele pour recreer ce fichier sur une nouvelle machine.
+lib/core/config/ai_config.dart

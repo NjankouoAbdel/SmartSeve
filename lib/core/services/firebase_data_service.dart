@@ -71,6 +71,37 @@ class FirebaseDataService {
     return _currentUserRoot().collection('meta').doc('subscription');
   }
 
+  /// Marqueur utilise par l'agent de resume mensuel (voir
+  /// FinancialAdvisorService.maybeGenerateMonthlySummary) pour se souvenir
+  /// du dernier mois deja resume, et ne jamais generer le meme resume deux
+  /// fois.
+  Future<DocumentReference<Map<String, dynamic>>>
+  monthlySummaryDocument() async {
+    await ensureSignedIn();
+    return _currentUserRoot().collection('meta').doc('monthly_summary');
+  }
+
+  /// Archive permanente de chaque document scanne/importe (reçu, relevé
+  /// photo ou PDF) : texte brut OCR + resume, conservee independamment des
+  /// depenses qui en decoulent. C'est la "memoire documentaire" que
+  /// l'agent conseiller financier (voir FinancialAdvisorService) consulte
+  /// pour repondre a des questions portant sur l'historique (ex: "combien
+  /// avais-je paye chez tel commercant en mars ?").
+  Future<CollectionReference<Map<String, dynamic>>> archiveCollection() async {
+    await ensureSignedIn();
+    return _currentUserRoot().collection('archive');
+  }
+
+  /// Historique de conversation avec l'agent conseiller financier : c'est
+  /// la "memoire" de la discussion elle-meme (distincte de la memoire
+  /// documentaire ci-dessus), pour que le chat retrouve ses messages
+  /// precedents meme apres avoir quitte puis rouvert l'ecran ou l'appli.
+  Future<CollectionReference<Map<String, dynamic>>>
+  advisorChatCollection() async {
+    await ensureSignedIn();
+    return _currentUserRoot().collection('advisor_chat');
+  }
+
   String _friendlyAuthError(FirebaseAuthException error) {
     switch (error.code) {
       case 'operation-not-allowed':

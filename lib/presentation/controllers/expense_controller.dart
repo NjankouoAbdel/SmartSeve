@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:wfer_flousk_firebase/core/services/financial_advisor_service.dart';
 import 'package:wfer_flousk_firebase/domain/entities/expense.dart';
 import 'package:wfer_flousk_firebase/domain/usecases/add_expense_usecase.dart';
 import 'package:wfer_flousk_firebase/domain/usecases/delete_expense_usecase.dart';
@@ -13,15 +15,21 @@ class ExpenseController extends ChangeNotifier {
     required GetExpensesUseCase getExpensesUseCase,
     required UpdateExpenseUseCase updateExpenseUseCase,
     required DeleteExpenseUseCase deleteExpenseUseCase,
+    FinancialAdvisorService? financialAdvisorService,
   }) : _addExpenseUseCase = addExpenseUseCase,
        _getExpensesUseCase = getExpensesUseCase,
        _updateExpenseUseCase = updateExpenseUseCase,
-       _deleteExpenseUseCase = deleteExpenseUseCase;
+       _deleteExpenseUseCase = deleteExpenseUseCase,
+       _financialAdvisorService = financialAdvisorService;
 
   final AddExpenseUseCase _addExpenseUseCase;
   final GetExpensesUseCase _getExpensesUseCase;
   final UpdateExpenseUseCase _updateExpenseUseCase;
   final DeleteExpenseUseCase _deleteExpenseUseCase;
+  // Optionnel : permet a l'agent anomalies de verifier chaque nouvelle
+  // depense (voir addExpense). Nullable pour ne pas casser les tests qui
+  // construisent ce controleur sans ce service.
+  final FinancialAdvisorService? _financialAdvisorService;
 
   final List<Expense> _expenses = <Expense>[];
   bool _isLoading = false;
@@ -63,6 +71,10 @@ class ExpenseController extends ChangeNotifier {
     await _addExpenseUseCase.call(expense);
     _expenses.add(expense);
     notifyListeners();
+    // Agent anomalies : verifie cette depense fraichement enregistree par
+    // rapport a l'historique de l'utilisateur. Ne bloque jamais l'ajout
+    // (fire-and-forget) et n'echoue jamais bruyamment en cas de probleme.
+    unawaited(_financialAdvisorService?.checkForAnomalies(expense));
   }
 
   Future<void> updateExpense(Expense expense) async {

@@ -13,6 +13,14 @@ class FinanceChatbotSnapshot {
     required this.recordedIncomeThisMonth,
     required this.monthlyIncome,
     required this.monthlySpending,
+    // Totaux "tous historiques confondus" (toutes les dates, pas seulement
+    // le mois en cours) : necessaires pour repondre a une question generale
+    // comme "quelle est la somme de mes depenses ?" quand l'utilisateur a
+    // importe des transactions d'un autre mois (ex: un releve PDF plus
+    // ancien) qui ne comptent pas dans monthlySpending.
+    required this.totalSpendingAllTime,
+    required this.totalIncomeAllTime,
+    required this.totalTransactionsAllTime,
     required this.todaySpending,
     required this.todayIncome,
     required this.weeklySpending,
@@ -50,6 +58,9 @@ class FinanceChatbotSnapshot {
   final double recordedIncomeThisMonth;
   final double monthlyIncome;
   final double monthlySpending;
+  final double totalSpendingAllTime;
+  final double totalIncomeAllTime;
+  final int totalTransactionsAllTime;
   final double todaySpending;
   final double todayIncome;
   final double weeklySpending;
@@ -77,6 +88,44 @@ class FinanceChatbotSnapshot {
   final int unreadNoticeCount;
   final bool biometricEnabled;
   final bool pinEnabled;
+
+  /// Convertit l'instantane en Map JSON-compatible, pour l'envoyer tel
+  /// quel a l'agent conseiller IA (voir [FinancialAdvisorService.ask]) :
+  /// c'est ce qui lui permet de connaitre les vrais chiffres de
+  /// l'utilisateur sans avoir a refaire ce calcul lui-meme.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'currencyCode': currencyCode,
+      'localeCode': localeCode,
+      'monthlyIncome': monthlyIncome,
+      'monthlySpending': monthlySpending,
+      'totalSpendingAllTime': totalSpendingAllTime,
+      'totalIncomeAllTime': totalIncomeAllTime,
+      'totalTransactionsAllTime': totalTransactionsAllTime,
+      'todaySpending': todaySpending,
+      'todayIncome': todayIncome,
+      'weeklySpending': weeklySpending,
+      'weeklyIncome': weeklyIncome,
+      'monthlySavingsGoal': monthlySavingsGoal,
+      'spendableBudget': spendableBudget,
+      'remainingBudget': remainingBudget,
+      'currentBalance': currentBalance,
+      'averageDailySpending': averageDailySpending,
+      'projectedMonthlySpending': projectedMonthlySpending,
+      'remainingDaysInMonth': remainingDaysInMonth,
+      'transactionsThisMonth': transactionsThisMonth,
+      'topCategoryLabel': topCategoryLabel,
+      'topCategoryAmount': topCategoryAmount,
+      'budgetCount': budgetCount,
+      'recurringCount': recurringCount,
+      'activeRecurringCount': activeRecurringCount,
+      'categorySpending': categorySpending,
+      'categoryDisplayNames': categoryDisplayNames,
+      'walletCount': walletCount,
+      'activeWalletName': activeWalletName,
+      'isPro': isPro,
+    };
+  }
 }
 
 class FinanceChatbotService {
@@ -363,7 +412,8 @@ class FinanceChatbotService {
       }
       return _pa(
         localeCode,
-        'This month: spending {spent}, incoming {income}, daily average {daily}, projected month-end spending {projected}, transactions {count}.',
+        'This month: spending {spent}, incoming {income}, daily average {daily}, projected month-end spending {projected}, transactions {count}. '
+            'All-time total (every recorded expense, any date): {allTime} across {allTimeCount} transaction(s).',
         <String, String>{
           'spent': _a(snapshot.monthlySpending, snapshot.currencyCode),
           'income': _a(snapshot.monthlyIncome, snapshot.currencyCode),
@@ -373,9 +423,14 @@ class FinanceChatbotService {
             snapshot.currencyCode,
           ),
           'count': '${snapshot.transactionsThisMonth}',
+          'allTime': _a(snapshot.totalSpendingAllTime, snapshot.currencyCode),
+          'allTimeCount': '${snapshot.totalTransactionsAllTime}',
         },
-        'Ce mois : depenses {spent}, revenu {income}, moyenne/jour {daily}, projection {projected}, transactions {count}.',
-        ar: 'هذا الشهر: المصروف {spent}، الدخل {income}، المتوسط اليومي {daily}، التوقع {projected}، العمليات {count}.',
+        'Ce mois : depenses {spent}, revenu {income}, moyenne/jour {daily}, projection {projected}, transactions {count}. '
+            'Total toutes periodes confondues (chaque depense enregistree, quelle que soit sa date) : {allTime} sur {allTimeCount} transaction(s).',
+        ar:
+            'هذا الشهر: المصروف {spent}، الدخل {income}، المتوسط اليومي {daily}، التوقع {projected}، العمليات {count}. '
+            'الإجمالي الكلي (كل المصاريف المسجلة، بأي تاريخ): {allTime} على {allTimeCount} عملية.',
       );
     }
 

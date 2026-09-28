@@ -25,7 +25,7 @@ class TransactionsPage extends StatefulWidget {
   State<TransactionsPage> createState() => _TransactionsPageState();
 }
 
-enum TransactionPeriod { today, weekly, monthly, all, custom }
+enum TransactionPeriod { today, weekly, monthly, all, upcoming, custom }
 
 class _TransactionsPageState extends State<TransactionsPage> {
   TransactionPeriod _period = TransactionPeriod.monthly;
@@ -180,6 +180,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
         _periodChip(context, _t('Week', fr: 'Semaine'), TransactionPeriod.weekly),
         _periodChip(context, _t('Month', fr: 'Mois'), TransactionPeriod.monthly),
         _periodChip(context, _t('All', fr: 'Tout'), TransactionPeriod.all),
+        _periodChip(
+          context,
+          _t('Upcoming', fr: 'Avenir'),
+          TransactionPeriod.upcoming,
+        ),
         if (_period == TransactionPeriod.custom)
           _periodChip(context, customLabel, TransactionPeriod.custom),
       ],
@@ -372,6 +377,16 @@ class _TransactionsPageState extends State<TransactionsPage> {
         return (start, end);
       case TransactionPeriod.all:
         return (null, null);
+      case TransactionPeriod.upcoming:
+        // Toutes les transactions dont la date est strictement apres
+        // aujourd'hui (utile pour les depenses saisies a l'avance avec une
+        // date future). Pas de borne de fin -> aucune limite dans le futur.
+        final DateTime tomorrow = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).add(const Duration(days: 1));
+        return (tomorrow, null);
       case TransactionPeriod.custom:
         return (_advancedFilter.startDate, _advancedFilter.endDate);
     }

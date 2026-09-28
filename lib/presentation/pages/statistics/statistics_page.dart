@@ -19,7 +19,13 @@ class StatisticsPage extends StatefulWidget {
   State<StatisticsPage> createState() => _StatisticsPageState();
 }
 
-enum StatsSegment { daily, weekly, monthly }
+// "all" a ete ajoute pour couvrir TOUTES les depenses enregistrees, quelle
+// que soit leur date : sans cet onglet, une depense importee d'un mois
+// different du mois en cours (par exemple un ancien releve bancaire PDF)
+// n'apparaissait dans AUCUN des 3 onglets existants (Quotidien/
+// Hebdomadaire/Mensuel sont tous relatifs a la date d'aujourd'hui), ce qui
+// donnait l'impression que les graphiques ne se mettaient jamais a jour.
+enum StatsSegment { daily, weekly, monthly, all }
 
 class _StatisticsPageState extends State<StatisticsPage> {
   static const double _horizontalPadding = 20;
@@ -174,7 +180,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   curve: Curves.easeOut,
                   alignment: _alignmentForSegment(_segment),
                   child: FractionallySizedBox(
-                    widthFactor: 1 / 3,
+                    widthFactor: 1 / 4,
                     child: Container(
                       margin: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
@@ -201,6 +207,10 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     _segmentButton(
                       _t('Monthly', fr: 'Mensuel'),
                       StatsSegment.monthly,
+                    ),
+                    _segmentButton(
+                      _t('All', fr: 'Tout'),
+                      StatsSegment.all,
                     ),
                   ],
                 ),
@@ -441,15 +451,20 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     'Cashflow (Last 6 Months)',
                     fr: 'Flux de tresorerie (6 derniers mois)',
                   )
-                : (_segment == StatsSegment.weekly
-                      ? _t(
-                          'Cashflow (Last 6 Weeks)',
-                          fr: 'Flux de tresorerie (6 dernieres semaines)',
-                        )
-                      : _t(
-                          'Cashflow (Last 7 Days)',
-                          fr: 'Flux de tresorerie (7 derniers jours)',
-                        )),
+                : _segment == StatsSegment.weekly
+                ? _t(
+                    'Cashflow (Last 6 Weeks)',
+                    fr: 'Flux de tresorerie (6 dernieres semaines)',
+                  )
+                : _segment == StatsSegment.all
+                ? _t(
+                    'Cashflow (All Time, by Month)',
+                    fr: 'Flux de tresorerie (tout l\'historique, par mois)',
+                  )
+                : _t(
+                    'Cashflow (Last 7 Days)',
+                    fr: 'Flux de tresorerie (7 derniers jours)',
+                  ),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -798,12 +813,16 @@ class _StatisticsPageState extends State<StatisticsPage> {
   }
 
   Alignment _alignmentForSegment(StatsSegment segment) {
+    // 4 onglets a repartir a egale distance de -1 (tout a gauche) a +1
+    // (tout a droite) : -1, -1/3, +1/3, +1.
     switch (segment) {
       case StatsSegment.daily:
         return Alignment.centerLeft;
       case StatsSegment.weekly:
-        return Alignment.center;
+        return const Alignment(-1 / 3, 0);
       case StatsSegment.monthly:
+        return const Alignment(1 / 3, 0);
+      case StatsSegment.all:
         return Alignment.centerRight;
     }
   }
@@ -829,6 +848,10 @@ class _StatisticsPageState extends State<StatisticsPage> {
         return source
             .where((Expense e) => _isInRange(e.date, monthStart, monthEnd))
             .toList(growable: false);
+      case StatsSegment.all:
+        // Aucun filtre de date: TOUTES les depenses enregistrees, meme
+        // celles d'un releve importe couvrant des mois passes.
+        return source;
     }
   }
 
@@ -913,6 +936,59 @@ class _StatisticsPageState extends State<StatisticsPage> {
     if (segment == StatsSegment.monthly) {
       for (int i = 5; i >= 0; i--) {
         final DateTime start = DateTime(now.year, now.month - i, 1);
+        final DateTime end = DateTime(start.year, start.month + 1, 1);
+        labels.add(DateUtilsX.monthShort(start, localeCode: localeCode));
+        expenseValues.add(_sumExpenses(source, start, end));
+        incomeValues.add(_sumIncome(source, start, end));
+      }
+      return _LineSeries(
+        labels: labels,
+        expenseValues: expenseValues,
+        incomeValues: incomeValues,
+      );
+    }
+
+    if (segment == StatsSegment.all) {
+      if (source.isEmpty) {
+        return const _LineSeries(
+          labels: <String>[],
+          expenseValues: <double>[],
+          incomeValues: <double>[],
+        );
+      }
+      // Un "mois" (annee+mois) par entree, pour regrouper TOUTES les
+      // depenses par mois calendaire, meme celles de mois tres anciens
+      // (ex: un vieux releve PDF importe), plutot que de se limiter aux 6
+      // derniers mois glissants comme le fait l'onglet "Mensuel".
+      DateTime earliest = source.first.date;
+      DateTime latest = source.first.date;
+      for (final Expense e in source) {
+        if (e.date.isBefore(earliest)) {
+          earliest = e.date;
+        }
+        if (e.date.isAfter(latest)) {
+          latest = e.date;
+        }
+      }
+      final DateTime firstMonth = DateTime(earliest.year, earliest.month, 1);
+      final DateTime lastMonth = DateTime(latest.year, latest.month, 1);
+      int monthCount =
+          (lastMonth.year - firstMonth.year) * 12 +
+          (lastMonth.month - firstMonth.month) +
+          1;
+      // Garde-fou: si l'historique s'etale sur des annees, on ne garde que
+      // les 12 derniers mois avec des donnees pour que le graphique reste
+      // lisible.
+      const int maxMonths = 12;
+      if (monthCount > maxMonths) {
+        monthCount = maxMonths;
+      }
+      for (int i = monthCount - 1; i >= 0; i--) {
+        final DateTime start = DateTime(
+          lastMonth.year,
+          lastMonth.month - i,
+          1,
+        );
         final DateTime end = DateTime(start.year, start.month + 1, 1);
         labels.add(DateUtilsX.monthShort(start, localeCode: localeCode));
         expenseValues.add(_sumExpenses(source, start, end));

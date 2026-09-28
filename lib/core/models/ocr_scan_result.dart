@@ -6,12 +6,18 @@ class OcrScanResult {
     required this.amount,
     required this.date,
     required this.suggestedNote,
+    this.suggestedCategory = ExpenseCategory.other,
   });
 
   final String rawText;
   final double? amount;
   final DateTime? date;
   final String suggestedNote;
+
+  /// Categorie devinee automatiquement a partir du texte du reçu (mots-cles
+  /// de marchand, voir [OcrService._guessCategory]). L'utilisateur n'a pas a
+  /// la choisir manuellement: c'est l'IA/OCR qui s'en charge.
+  final ExpenseCategory suggestedCategory;
 }
 
 /// Une transaction detectee dans un relevé bancaire scanne, avant validation

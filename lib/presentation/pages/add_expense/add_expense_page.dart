@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wfer_flousk_firebase/core/constants/app_colors.dart';
 import 'package:wfer_flousk_firebase/core/constants/ui_tokens.dart';
 import 'package:wfer_flousk_firebase/core/localization/app_localizations.dart';
+import 'package:wfer_flousk_firebase/core/models/ocr_scan_result.dart';
 import 'package:wfer_flousk_firebase/core/utils/currency_utils.dart';
 import 'package:wfer_flousk_firebase/core/utils/date_utils.dart';
 import 'package:wfer_flousk_firebase/core/utils/icon_utils.dart';
@@ -20,6 +22,14 @@ import 'package:wfer_flousk_firebase/domain/entities/expense.dart';
 import 'package:wfer_flousk_firebase/presentation/controllers/expense_controller.dart';
 import 'package:wfer_flousk_firebase/presentation/controllers/settings_controller.dart';
 import 'package:wfer_flousk_firebase/presentation/controllers/tools_controller.dart';
+import 'package:wfer_flousk_firebase/presentation/widgets/statement_review_dialog.dart';
+
+/// Les 3 facons d'ajouter une transaction, presentees comme des options
+/// paralleles et explicites plutot que cachees les unes derriere les autres:
+/// saisie manuelle (le formulaire habituel), scan d'un reçu (photo -> OCR ->
+/// formulaire pre-rempli), ou import d'un releve bancaire PDF (plusieurs
+/// transactions ajoutees en bloc apres verification).
+enum _AddExpenseMode { manual, scan, pdf }
 
 class AddExpensePage extends StatefulWidget {
   const AddExpensePage({
@@ -47,6 +57,17 @@ class _AddExpensePageState extends State<AddExpensePage> {
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
   bool _savedSuccess = false;
+  bool _busyScan = false;
+  _AddExpenseMode _mode = _AddExpenseMode.manual;
+
+  /// En mode Scanner, le formulaire (montant/date/note) ne sert qu'a
+  /// verifier ce que l'OCR a detecte — il n'a donc aucune raison de
+  /// s'afficher tant qu'aucun scan n'a ete fait (l'utilisateur verrait
+  /// sinon un montant a 0 et la date du jour par defaut, avant meme
+  /// d'avoir scanne quoi que ce soit). Reste a `false` tant qu'aucun scan
+  /// n'a reussi; repasse a `false` des qu'on change de mode pour repartir
+  /// propre.
+  bool _scanResultReady = false;
   String? _selectedCustomCategoryId;
   String? _selectedCustomCategoryName;
   int? _selectedCustomCategoryIconCodePoint;
@@ -299,19 +320,476 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     showBackToHome: true,
                   ),
                   const SizedBox(height: UiTokens.spacingMd),
-                  _mainCard(
-                    context,
-                    currencyCode,
-                    expenses,
-                    activeAccountId,
-                    customCategories,
-                  ),
+                  _modeSelector(context),
+                  const SizedBox(height: UiTokens.spacingMd),
+                  if (_mode == _AddExpenseMode.pdf)
+                    _pdfPanel(context)
+                  else if (_mode == _AddExpenseMode.scan) ...<Widget>[
+                    // Tant qu'aucun reçu n'a ete scanne avec succes, on
+                    // n'affiche QUE le bouton de scan: pas de formulaire
+                    // vide (montant/date/note) qui n'aurait rien a
+                    // verifier. Le formulaire n'apparait qu'une fois
+                    // qu'il y a vraiment quelque chose a confirmer.
+                    _scanPanel(context),
+                    if (_scanResultReady) ...<Widget>[
+                      const SizedBox(height: UiTokens.spacingMd),
+                      _mainCard(
+                        context,
+                        currencyCode,
+                        expenses,
+                        activeAccountId,
+                        customCategories,
+                        hideCategoryPicker: true,
+                      ),
+                    ],
+                  ] else
+                    _mainCard(
+                      context,
+                      currencyCode,
+                      expenses,
+                      activeAccountId,
+                      customCategories,
+                    ),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Selecteur des 3 facons d'ajouter une transaction, presentees comme des
+  /// options paralleles et explicites (voir [_AddExpenseMode]): l'utilisateur
+  /// choisit d'abord COMMENT il veut ajouter, puis l'ecran en dessous change
+  /// en consequence.
+  Widget _modeSelector(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _modeChip(
+            context,
+            _AddExpenseMode.manual,
+            _t('Manual', fr: 'Manuel'),
+            Icons.edit_note_rounded,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _modeChip(
+            context,
+            _AddExpenseMode.scan,
+            _t('Scan', fr: 'Scanner'),
+            Icons.document_scanner_outlined,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _modeChip(
+            context,
+            _AddExpenseMode.pdf,
+            _t('PDF', fr: 'PDF'),
+            Icons.picture_as_pdf_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _modeChip(
+    BuildContext context,
+    _AddExpenseMode mode,
+    String label,
+    IconData icon,
+  ) {
+    final bool selected = _mode == mode;
+    return InkWell(
+      onTap: () => setState(() {
+        _mode = mode;
+        // On repart propre a chaque changement d'onglet: si on quitte le
+        // mode Scanner puis qu'on y revient, le formulaire de
+        // confirmation doit rester cache tant qu'un nouveau scan n'a pas
+        // ete fait (voir _scanResultReady).
+        _scanResultReady = false;
+      }),
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: selected
+              ? const LinearGradient(
+                  colors: <Color>[
+                    AppColors.primaryBlue,
+                    AppColors.gradientBlue2,
+                  ],
+                )
+              : null,
+          color: selected ? null : Colors.white.withValues(alpha: 0.85),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : AppColors.deepBlue.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? Colors.white : AppColors.primaryBlue,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : AppColors.deepBlue,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Panneau affiche en mode "Scanner": l'utilisateur prend/choisit une
+  /// photo de reçu, qui pre-remplit le formulaire habituel affiche juste en
+  /// dessous (voir [_scanSingleReceipt]) pour qu'il puisse verifier/corriger
+  /// avant d'enregistrer.
+  Widget _scanPanel(BuildContext context) {
+    return GlassCard(
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.document_scanner_outlined,
+                size: 18,
+                color: AppColors.primaryBlue,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _t('Scan a receipt', fr: 'Scanner un reçu'),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _scanResultReady
+                ? _t(
+                    'Amount, date and note were prefilled below from your '
+                    'receipt — check them before saving, or scan another '
+                    'receipt.',
+                    fr:
+                        'Le montant, la date et la note ci-dessous ont ete '
+                        'preremplis a partir de votre reçu — verifiez-les '
+                        'avant d\'enregistrer, ou scannez un autre reçu.',
+                  )
+                : _t(
+                    'Take or choose a photo of a receipt. The amount, date '
+                    'and note will be detected automatically so you can '
+                    'review them before saving.',
+                    fr:
+                        'Prenez ou choisissez une photo de reçu. Le '
+                        'montant, la date et la note seront detectes '
+                        'automatiquement afin que vous puissiez les '
+                        'verifier avant d\'enregistrer.',
+                  ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busyScan
+                  ? null
+                  : () => _scanSingleReceipt(context),
+              icon: _busyScan
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _scanResultReady
+                          ? Icons.refresh_rounded
+                          : Icons.camera_alt_outlined,
+                    ),
+              label: Text(
+                _busyScan
+                    ? _t('Analyzing…', fr: 'Analyse en cours…')
+                    : _scanResultReady
+                    ? _t('Scan Another Receipt', fr: 'Scanner un autre reçu')
+                    : _t('Scan Receipt', fr: 'Scanner un reçu'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Panneau affiche en mode "PDF": contrairement au scan (qui pre-remplit LE
+  /// formulaire pour UNE transaction), un releve PDF contient generalement
+  /// PLUSIEURS transactions — le formulaire habituel ne s'applique donc pas
+  /// ici. Cette action ouvre directement le fichier puis la fenetre de
+  /// verification/import group (voir [_importPdfStatement]).
+  Widget _pdfPanel(BuildContext context) {
+    return GlassCard(
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.picture_as_pdf_outlined,
+                size: 18,
+                color: AppColors.primaryBlue,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _t('Import a PDF statement', fr: 'Importer un relevé PDF'),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _t(
+              'Choose a PDF bank statement. Every detected transaction can '
+              'be reviewed and corrected before being added in bulk.',
+              fr:
+                  'Choisissez un relevé bancaire au format PDF. Chaque '
+                  'transaction détectée peut être vérifiée et corrigée '
+                  'avant d\'être ajoutée en bloc.',
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busyScan
+                  ? null
+                  : () => _importPdfStatement(context),
+              icon: _busyScan
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.file_open_outlined),
+              label: Text(
+                _busyScan
+                    ? _t(
+                        'Reading PDF and detecting transactions…',
+                        fr: 'Lecture du PDF et détection des transactions…',
+                      )
+                    : _t('Choose PDF File', fr: 'Choisir un fichier PDF'),
+              ),
+            ),
+          ),
+          if (_busyScan) ...<Widget>[
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _t(
+                      'This can take a few seconds for a multi-page '
+                      'statement, please wait…',
+                      fr:
+                          'Cela peut prendre quelques secondes pour un '
+                          'relevé de plusieurs pages, veuillez patienter…',
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<ImageSource?> _pickImageSource(BuildContext context) {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: Text(_t('Camera', fr: 'Caméra')),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(_t('Gallery', fr: 'Galerie')),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Scanne UNE photo de reçu et pre-remplit le formulaire courant (montant,
+  /// date, note) au lieu d'ajouter directement une depense: on est deja sur
+  /// l'ecran d'ajout, l'utilisateur garde la main pour corriger la categorie
+  /// avant d'enregistrer avec le bouton habituel.
+  Future<void> _scanSingleReceipt(BuildContext context) async {
+    final ImageSource? source = await _pickImageSource(context);
+    if (source == null || !mounted) {
+      return;
+    }
+
+    final ToolsController tools = context.read<ToolsController>();
+    setState(() => _busyScan = true);
+    final OcrScanResult? result = await tools.scanReceipt(source);
+    if (mounted) {
+      setState(() => _busyScan = false);
+    }
+    if (!mounted) {
+      return;
+    }
+
+    if (result == null) {
+      _snack(
+        tools.lastOcrError ??
+            _t(
+              'Scan failed or canceled.',
+              fr: 'Scan échoué ou annulé.',
+            ),
+      );
+      return;
+    }
+
+    setState(() {
+      final double? amount = result.amount;
+      if (amount != null && amount > 0) {
+        _amountController.text = amount.toStringAsFixed(2);
+      }
+      final DateTime? date = result.date;
+      if (date != null) {
+        _selectedDate = date;
+      }
+      if (_noteController.text.trim().isEmpty) {
+        _noteController.text = result.suggestedNote;
+      }
+      // Categorie devinee automatiquement par l'OCR/IA a partir du texte du
+      // reçu — aucune categorie n'est proposee a l'utilisateur en mode
+      // Scanner, donc on l'applique directement (et on efface une eventuelle
+      // categorie personnalisee choisie precedemment en mode Manuel).
+      _selectedCategory = result.suggestedCategory;
+      _selectedCustomCategoryId = null;
+      _selectedCustomCategoryName = null;
+      _selectedCustomCategoryIconCodePoint = null;
+      _selectedCustomCategoryColorValue = null;
+      // Maintenant qu'on a un resultat, le formulaire de confirmation
+      // (montant/date/note) peut enfin s'afficher — voir _scanResultReady.
+      _scanResultReady = true;
+    });
+
+    _snack(
+      _t(
+        'Receipt scanned. Check the amount before saving.',
+        fr: 'Reçu scanné. Vérifiez le montant avant d\'enregistrer.',
+      ),
+    );
+  }
+
+  /// Importe un PDF de relevé bancaire (plusieurs transactions) directement
+  /// depuis l'ecran d'ajout: contrairement au scan simple, ceci ajoute les
+  /// transactions cochees en bloc (via le meme ecran de revue que le Centre
+  /// Outils) plutot que de remplir ce formulaire, qui ne represente qu'une
+  /// seule transaction a la fois.
+  Future<void> _importPdfStatement(BuildContext context) async {
+    final ToolsController tools = context.read<ToolsController>();
+    final ExpenseController expenseController = context
+        .read<ExpenseController>();
+    final SettingsController settings = context.read<SettingsController>();
+
+    setState(() => _busyScan = true);
+    final BankStatementScanResult? result = await tools
+        .scanBankStatementFromPdf();
+    if (mounted) {
+      setState(() => _busyScan = false);
+    }
+    if (!mounted) {
+      return;
+    }
+
+    if (result == null) {
+      final String errorMessage =
+          tools.lastStatementScanError ??
+          _t(
+            'Statement scan failed or canceled.',
+            fr: 'Scan du relevé échoué ou annulé.',
+          );
+      // TEMPORAIRE (diagnostic) : une simple SnackBar disparait toute seule
+      // apres quelques secondes, ce qui rend difficile d'en faire une bonne
+      // capture d'ecran. On affiche donc ce message dans une fenetre qui
+      // reste ouverte tant que l'utilisateur ne l'a pas fermee lui-meme, et
+      // dont le texte peut etre selectionne/copie directement (plus fiable
+      // qu'une capture d'ecran). A simplifier une fois le probleme du PDF
+      // resolu.
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: Text(
+              _t('Statement import failed', fr: 'Échec de l\'import du relevé'),
+            ),
+            content: SingleChildScrollView(
+              child: SelectableText(errorMessage),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(_t('Close', fr: 'Fermer')),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    await showStatementReviewDialog(
+      context: context,
+      tools: tools,
+      result: result,
+      expenses: expenseController,
+      settings: settings,
     );
   }
 
@@ -424,8 +902,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     String currencyCode,
     ExpenseController expenses,
     String activeAccountId,
-    List<CustomCategory> customCategories,
-  ) {
+    List<CustomCategory> customCategories, {
+    bool hideCategoryPicker = false,
+  }) {
     return GlassCard(
       borderRadius: 22,
       gradient: LinearGradient(
@@ -456,8 +935,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
             children: <Widget>[
               _amountInput(context, currencyCode),
               const SizedBox(height: UiTokens.spacingMd),
-              _categoryGrid(context, customCategories),
-              const SizedBox(height: UiTokens.spacingMd),
+              // En mode Scanner/PDF, la categorie est devinee automatiquement
+              // par l'OCR/IA (voir OcrService._guessCategory) et n'est pas
+              // proposee a l'utilisateur ici.
+              if (!hideCategoryPicker) ...<Widget>[
+                _categoryGrid(context, customCategories),
+                const SizedBox(height: UiTokens.spacingMd),
+              ],
               _dateField(context),
               const SizedBox(height: UiTokens.spacingSm),
               TextFormField(
@@ -1118,9 +1602,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
     return max(values.single, 0).toDouble();
   }
 
-  void _snack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _snack(String message, {Duration? duration}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: duration ?? const Duration(seconds: 4),
+      ),
+    );
   }
 }

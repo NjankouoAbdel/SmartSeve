@@ -21,6 +21,7 @@ import 'package:wfer_flousk_firebase/presentation/controllers/tools_controller.d
 import 'package:wfer_flousk_firebase/presentation/pages/accounts/account_selector_page.dart';
 import 'package:wfer_flousk_firebase/presentation/pages/pro/pro_page.dart';
 import 'package:wfer_flousk_firebase/presentation/pages/settings/settings_page.dart';
+import 'package:wfer_flousk_firebase/presentation/pages/tools/budget_page.dart';
 import 'package:wfer_flousk_firebase/presentation/pages/tools/tools_center_page.dart';
 import 'package:wfer_flousk_firebase/presentation/widgets/app_logo.dart';
 
@@ -1308,13 +1309,11 @@ class _HomePageState extends State<HomePage> {
     required double tileHeight,
     required bool compact,
   }) {
+    // Le bouton "Ajouter depense" a ete retire d'ici: le bouton "+" de la
+    // barre de navigation du bas fait deja exactement la meme action
+    // (voir _openAddExpenseStandalone dans main_shell_page.dart), donc les
+    // deux boutons faisaient double emploi.
     final List<Widget> tiles = <Widget>[
-      ActionTile(
-        icon: Icons.add_circle_rounded,
-        label: _t('Add Expense', fr: 'Ajouter depense'),
-        onTap: widget.onQuickAddTap,
-        height: tileHeight,
-      ),
       ActionTile(
         icon: Icons.trending_up_rounded,
         label: _t('Add Income', fr: 'Ajouter revenu'),
@@ -1322,18 +1321,14 @@ class _HomePageState extends State<HomePage> {
         height: tileHeight,
       ),
       ActionTile(
-        icon: Icons.document_scanner_rounded,
-        label: _t('Scan Receipt', fr: 'Scanner recu'),
-        onTap: () => _scanReceiptFromHome(context),
-        height: tileHeight,
-      ),
-      ActionTile(
         icon: Icons.pie_chart_rounded,
         label: _t('Set Budget', fr: 'Definir budget'),
         onTap: () {
-          Navigator.of(
-            context,
-          ).push(AppRouter.slideFade(const ToolsCenterPage(initialTab: 0)));
+          // Ecran dedie au budget uniquement (voir BudgetPage) plutot que
+          // le Centre Outils en entier: quelqu'un qui vient definir un
+          // budget n'a pas besoin de voir en meme temps les 5 autres
+          // outils (paiements planifies, verrou, chatbot, OCR, CSV).
+          Navigator.of(context).push(AppRouter.slideFade(const BudgetPage()));
         },
         height: tileHeight,
       ),
@@ -1396,17 +1391,16 @@ class _HomePageState extends State<HomePage> {
               );
             }
 
-            return Row(
-              children: <Widget>[
-                Expanded(child: tiles[0]),
-                const SizedBox(width: 10),
-                Expanded(child: tiles[1]),
-                const SizedBox(width: 10),
-                Expanded(child: tiles[2]),
-                const SizedBox(width: 10),
-                Expanded(child: tiles[3]),
-              ],
-            );
+            // Construit la ligne dynamiquement (plutot que tiles[0]/[1]/[2]
+            // en dur) pour ne pas planter si le nombre de tuiles change.
+            final List<Widget> rowChildren = <Widget>[];
+            for (int i = 0; i < tiles.length; i++) {
+              if (i > 0) {
+                rowChildren.add(const SizedBox(width: 10));
+              }
+              rowChildren.add(Expanded(child: tiles[i]));
+            }
+            return Row(children: rowChildren);
           },
         ),
       ],

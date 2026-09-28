@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wfer_flousk_firebase/core/constants/ui_tokens.dart';
 import 'package:wfer_flousk_firebase/core/localization/app_localizations.dart';
+import 'package:wfer_flousk_firebase/core/models/advisor_message.dart';
 import 'package:wfer_flousk_firebase/core/services/finance_chatbot_service.dart';
+import 'package:wfer_flousk_firebase/core/services/financial_advisor_service.dart';
 import 'package:wfer_flousk_firebase/core/widgets/fintech_page_app_bar.dart';
 import 'package:wfer_flousk_firebase/core/widgets/glass_card.dart';
 import 'package:wfer_flousk_firebase/core/widgets/gradient_background.dart';
@@ -33,8 +36,25 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _addWelcomeMessage();
+      _loadHistoryOrWelcome();
     });
+  }
+
+  /// A CHAQUE ouverture de cet ecran, on repart d'une conversation neuve
+  /// (juste le message de bienvenue), plutot que de recharger les anciens
+  /// messages depuis Firestore: l'utilisateur trouvait que revoir toujours
+  /// les memes vieux messages donnait une impression d'ecran surcharge.
+  /// (L'ancien comportement rechargeait l'historique via
+  /// [FinancialAdvisorService.loadHistory] pour donner au chat une
+  /// "memoire" visuelle d'une session a l'autre ; ce n'est plus le cas ici,
+  /// mais les messages restent quand meme enregistres sur Firebase via
+  /// [FinancialAdvisorService.appendMessage] a chaque envoi, au cas ou ils
+  /// redeviendraient utiles plus tard.)
+  Future<void> _loadHistoryOrWelcome() async {
+    if (!mounted) {
+      return;
+    }
+    _addWelcomeMessage();
   }
 
   @override
@@ -226,23 +246,48 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
       return;
     }
 
+    final FinancialAdvisorService advisor = context
+        .read<FinancialAdvisorService>();
+
     _inputController.clear();
     setState(() {
       _messages.add(_ChatMessage(text: text, fromUser: true));
       _isReplying = true;
     });
     _scrollToBottom();
+    unawaited(
+      advisor.appendMessage(
+        AdvisorMessage(role: 'user', content: text, timestamp: DateTime.now()),
+      ),
+    );
 
     final SettingsController settings = context.read<SettingsController>();
     final FinanceChatbotSnapshot snapshot = _buildSnapshot();
 
-    final String reply = _chatbot.reply(
-      localeCode: settings.localeCode,
-      message: text,
-      snapshot: snapshot,
-    );
+    String reply;
+    try {
+      // Agent conseiller IA (voir financial_advisor_service.dart) : il
+      // consulte l'archive documentaire de l'utilisateur et repond
+      // directement via l'API Groq.
+      reply = await advisor.ask(question: text, snapshot: snapshot.toMap());
+    } catch (error) {
+      // Filet de securite hors-ligne / si la cle Groq n'est pas (encore)
+      // configuree : le chatbot a mots-cles prend le relais, l'utilisateur
+      // n'est jamais bloque sans reponse. On journalise quand meme la
+      // cause exacte (visible dans le terminal `flutter run` ou Logcat)
+      // pour pouvoir diagnostiquer pourquoi l'IA n'a pas repondu.
+      debugPrint('Agent conseiller IA indisponible, repli local -> $error');
+      final String fallback = _chatbot.reply(
+        localeCode: settings.localeCode,
+        message: text,
+        snapshot: snapshot,
+      );
+      // TEMPORAIRE (diagnostic) : affiche la cause exacte directement dans
+      // le chat, pour ne pas avoir a chercher dans les logs du telephone.
+      // A retirer une fois le probleme de l'agent IA resolu.
+      reply = '$fallback\n\n[DEBUG] $error';
+    }
 
-    await Future<void>.delayed(const Duration(milliseconds: 220));
     if (!mounted) {
       return;
     }
@@ -252,6 +297,15 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
       _isReplying = false;
     });
     _scrollToBottom();
+    unawaited(
+      advisor.appendMessage(
+        AdvisorMessage(
+          role: 'assistant',
+          content: reply,
+          timestamp: DateTime.now(),
+        ),
+      ),
+    );
   }
 
   FinanceChatbotSnapshot _buildSnapshot() {
@@ -277,6 +331,13 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
     double weeklySpending = 0;
     double weeklyIncome = 0;
     int transactionsThisMonth = 0;
+    // Totaux tous historiques confondus (voir commentaire sur
+    // FinanceChatbotSnapshot.totalSpendingAllTime) : calcules sur TOUTES
+    // les depenses, meme celles d'un mois different du mois en cours (par
+    // exemple un releve bancaire PDF importe qui couvre des mois passes).
+    double totalSpendingAllTime = 0;
+    double totalIncomeAllTime = 0;
+    int totalTransactionsAllTime = 0;
     final Map<String, double> categoryTotals = <String, double>{};
     final Map<String, String> categoryDisplayNames = <String, String>{};
 
@@ -295,6 +356,13 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
           !itemDay.isBefore(weekStart) && !itemDay.isAfter(today);
       final bool isCurrentMonth =
           item.date.year == now.year && item.date.month == now.month;
+
+      totalTransactionsAllTime += 1;
+      if (item.amount > 0) {
+        totalSpendingAllTime += item.amount;
+      } else {
+        totalIncomeAllTime += item.amount.abs();
+      }
 
       if (isToday) {
         if (item.amount > 0) {
@@ -369,6 +437,9 @@ class _FinanceChatbotPageState extends State<FinanceChatbotPage> {
       themeModeKey: settings.themeMode.name,
       monthlyIncome: monthlyIncome,
       monthlySpending: monthlySpending,
+      totalSpendingAllTime: totalSpendingAllTime,
+      totalIncomeAllTime: totalIncomeAllTime,
+      totalTransactionsAllTime: totalTransactionsAllTime,
       todaySpending: todaySpending,
       todayIncome: todayIncome,
       weeklySpending: weeklySpending,

@@ -9,6 +9,7 @@ import 'package:wfer_flousk_firebase/app.dart';
 import 'package:wfer_flousk_firebase/core/navigation/shell_navigation_controller.dart';
 import 'package:wfer_flousk_firebase/core/services/csv_service.dart';
 import 'package:wfer_flousk_firebase/core/services/export_service.dart';
+import 'package:wfer_flousk_firebase/core/services/financial_advisor_service.dart';
 import 'package:wfer_flousk_firebase/core/services/firebase_data_service.dart';
 import 'package:wfer_flousk_firebase/core/services/firebase_toolkit_service.dart';
 import 'package:wfer_flousk_firebase/core/services/google_sheets_service.dart';
@@ -119,11 +120,26 @@ Future<void> main() async {
     settingsRepository,
   );
 
+  // Cote client du systeme multi-agent conseiller financier : archive les
+  // documents scannes/importes et appelle directement l'IA Groq (voir
+  // financial_advisor_service.dart pour le detail des responsabilites de
+  // chaque agent, et core/config/ai_config.dart pour la cle Groq).
+  // Construit avant ExpenseController pour que l'agent anomalies puisse
+  // etre branche des l'ajout d'une depense.
+  final FinancialAdvisorService financialAdvisorService =
+      FinancialAdvisorService(dataService: firebaseDataService);
+  // Agent resume mensuel : verifie une seule fois au demarrage si un
+  // nouveau mois a commence depuis le dernier resume envoye. Volontairement
+  // non-bloquant (unawaited) : ca ne doit jamais retarder le lancement de
+  // l'app, et une erreur (hors-ligne, cle Groq absente...) est silencieuse.
+  unawaited(financialAdvisorService.maybeGenerateMonthlySummary());
+
   final ExpenseController expenseController = ExpenseController(
     addExpenseUseCase: addExpenseUseCase,
     getExpensesUseCase: getExpensesUseCase,
     updateExpenseUseCase: updateExpenseUseCase,
     deleteExpenseUseCase: deleteExpenseUseCase,
+    financialAdvisorService: financialAdvisorService,
   );
   await _runStartupStep<void>(
     label: 'ExpenseController.loadExpenses',
@@ -186,6 +202,7 @@ Future<void> main() async {
     csvService: CsvService(),
     ocrService: OcrService(),
     securityService: SecurityService(LocalAuthentication()),
+    financialAdvisorService: financialAdvisorService,
   );
   await _runStartupStep<void>(
     label: 'ToolsController.initialize',
@@ -260,6 +277,9 @@ Future<void> main() async {
         Provider<ExportService>.value(value: exportService),
         Provider<GoogleSheetsService>.value(value: googleSheetsService),
         Provider<HomeWidgetService>.value(value: homeWidgetService),
+        Provider<FinancialAdvisorService>.value(
+          value: financialAdvisorService,
+        ),
         Provider<ShellNavigationController>.value(
           value: shellNavigationController,
         ),
